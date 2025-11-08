@@ -1,0 +1,36 @@
+version: "3.8"
+
+services:
+  plataforma-cursos:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: plataforma-cursos
+    restart: unless-stopped
+    ports:
+      - "${PORT:-9823}:9823"
+    volumes:
+      # Persistir banco de dados SQLite
+      - ./data:/app/data
+      # Persistir uploads de capas de cursos
+      - ./uploads:/app/uploads
+
+      # Volume de cursos - configurado via variável de ambiente
+      # Configure COURSES_PATH no arquivo .env
+      - ${COURSES_PATH}:${COURSES_INTERNAL_PATH:-/cursos}:ro
+    environment:
+      - DATABASE_URL=${DATABASE_URL:-sqlite:////app/data/platform_course.sqlite}
+      - FLASK_ENV=${FLASK_ENV:-production}
+      - PYTHONUNBUFFERED=1
+    networks:
+      - plataforma-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9823/api/debug/routes"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  plataforma-network:
+    driver: bridge
