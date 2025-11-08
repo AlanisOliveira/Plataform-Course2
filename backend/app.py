@@ -41,7 +41,17 @@ class Lesson(db.Model):
 from routes import *
 
 with app.app_context():
-    db.create_all()
+    try:
+        db.create_all()
+    except Exception as e:
+        # Tables might already exist, check if we can query them
+        try:
+            db.session.execute(db.text("SELECT 1 FROM course LIMIT 1"))
+            print("Database tables already exist, skipping creation")
+        except:
+            # Tables don't exist and create_all failed, this is a real error
+            print(f"Error creating database tables: {e}")
+            raise
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000, host="0.0.0.0")
