@@ -7,11 +7,14 @@ Sistema completo para gerenciamento e visualização de cursos em vídeo com sup
 - ✅ Player de vídeo com controles completos
 - ✅ Suporte a múltiplos formatos: MP4, AVI, MOV, WMV, FLV, MKV, WebM, TS, PDF, TXT, HTML
 - ✅ Sistema de progresso por aula e por curso
-- ✅ Organização por módulos
+- ✅ Organização hierárquica por módulos e submódulos (pastas/subpastas)
+- ✅ Sistema de categorias/tags para cursos
+- ✅ Busca por nome ou categoria
 - ✅ Notas por curso e por aula
 - ✅ Retomada automática do último ponto assistido
 - ✅ Interface responsiva (desktop e mobile)
 - ✅ Tema claro e escuro
+- ✅ Migração automática de banco de dados
 
 ## 🚀 Instalação Rápida
 
@@ -74,6 +77,7 @@ Cursos/
 2. Clique em "Adicionar"
 3. Preencha:
    - **Nome do curso**: Nome que aparecerá na plataforma
+   - **Categorias/Tags** (opcional): Separe por vírgula (ex: `Frontend, React, JavaScript`)
    - **PATH do curso**: Use o formato `/cursos/Nome-do-Curso`
    - **Capa** (opcional): URL da imagem ou faça upload
 4. Clique em "Confirmar"
@@ -86,6 +90,44 @@ Se seus cursos estão em:
 - ZimaOS: `/DATA/Cursos/Python Avançado`
 
 **Use sempre**: `/cursos/Python Avançado`
+
+## 🏷️ Sistema de Categorias e Busca
+
+### Categorias
+- Adicione categorias/tags aos cursos para melhor organização
+- Separe múltiplas categorias por vírgula
+- Exemplos: `Frontend, React`, `Backend, Python, API`, `Design, UI/UX`
+- As categorias aparecem como badges nos cards dos cursos
+
+### Busca
+- Use a barra de busca na página de cursos
+- Busca funciona por nome do curso ou categoria
+- Filtragem em tempo real conforme você digita
+
+## 📂 Navegação Hierárquica de Módulos
+
+A plataforma agora suporta navegação completa por pastas e subpastas:
+
+```
+Curso de Desenvolvimento Web/
+├── 01 - Fundamentos/
+│   ├── HTML/
+│   │   ├── 1 - Introdução.mp4
+│   │   └── 2 - Tags básicas.mp4
+│   ├── CSS/
+│   │   └── 1 - Seletores.mp4
+│   └── JavaScript/
+│       ├── 1 - Variáveis.mp4
+│       └── 2 - Funções.mp4
+├── 02 - Avançado/
+│   ├── React/
+│   └── Node.js/
+```
+
+- Cada pasta/subpasta é exibida como um módulo clicável
+- Ícone de pasta para fácil identificação
+- Barra de progresso calculada incluindo todas as aulas das subpastas
+- Estrutura totalmente recursiva (suporta quantos níveis você precisar)
 
 ## 🎓 Sistema de Notas
 
@@ -221,6 +263,38 @@ plataforma-cursos-completa/
 - Sem exposição de APIs externas
 - CORS configurado para mesma origem
 
+## 🔄 Atualizações e Migrações
+
+A plataforma possui sistema de migração automática de banco de dados. Ao atualizar a aplicação:
+
+1. Faça backup do banco de dados (recomendado):
+```bash
+cp data/platform_course.sqlite data/platform_course.sqlite.backup
+```
+
+2. Atualize o código:
+```bash
+git pull
+```
+
+3. Reconstrua e reinicie:
+```bash
+docker-compose down
+docker-compose up -d --build
+```
+
+**As migrações serão aplicadas automaticamente** ao iniciar a aplicação. Você verá mensagens no log como:
+
+```
+Adicionando coluna 'categories' à tabela 'course'...
+Coluna 'categories' adicionada com sucesso!
+```
+
+Ou se já estiver atualizado:
+```
+Coluna 'categories' já existe, nenhuma migração necessária.
+```
+
 ## 🆘 Solução de Problemas
 
 ### Erro: "No such file or directory"
@@ -241,6 +315,17 @@ plataforma-cursos-completa/
 ```bash
 docker-compose down
 docker-compose up -d --build
+```
+
+### Erro ao adicionar categorias (usuários antigos)
+Se você estava usando uma versão anterior e vê erros relacionados a "categories":
+1. A migração automática deve resolver
+2. Verifique os logs: `docker-compose logs backend`
+3. Se persistir, faça backup e recrie o banco:
+```bash
+cp data/platform_course.sqlite data/platform_course.sqlite.backup
+rm data/platform_course.sqlite
+docker-compose restart
 ```
 
 ## 📄 Licença

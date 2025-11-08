@@ -50,15 +50,31 @@ export default function CoursePage({}: Props) {
   }
 
   async function onOrganize() {
-    const x: any = {};
-    lessons.forEach((l) => {
-      const moduleName = l.module.split("/", 1)[0];
-      if (!x[moduleName]) {
-        x[moduleName] = [];
-      }
-      x[moduleName].push(l);
+    const hierarchy: any = {};
+
+    lessons.forEach((lesson) => {
+      const pathParts = lesson.module ? lesson.module.split("/") : ["Sem Módulo"];
+      let currentLevel = hierarchy;
+
+      // Navegar pela hierarquia criando subníveis conforme necessário
+      pathParts.forEach((part, index) => {
+        if (!currentLevel[part]) {
+          currentLevel[part] = {};
+        }
+
+        // Se for o último nível, adicionar as aulas
+        if (index === pathParts.length - 1) {
+          if (!currentLevel[part]._lessons) {
+            currentLevel[part]._lessons = [];
+          }
+          currentLevel[part]._lessons.push(lesson);
+        } else {
+          currentLevel = currentLevel[part];
+        }
+      });
     });
-    setModules(x);
+
+    setModules(hierarchy);
   }
 
   useEffect(() => {

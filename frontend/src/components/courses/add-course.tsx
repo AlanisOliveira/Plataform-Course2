@@ -29,6 +29,8 @@ export default function AddCourse({ onCreate }: Props) {
   const [courseName, setCourseName] = useState<string>("");
   const [imageURL, setImageURL] = useState<string>("");
   const [coursePath, setCoursePath] = useState<string>("");
+  const [categories, setCategories] = useState<string>("");
+  const [courseType, setCourseType] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -44,6 +46,12 @@ export default function AddCourse({ onCreate }: Props) {
 
     formData.append("name", courseName);
     formData.append("path", coursePath);
+    if (categories) {
+      formData.append("categories", categories);
+    }
+    if (courseType) {
+      formData.append("course_type", courseType);
+    }
 
     if (
       fileInputRef.current &&
@@ -92,6 +100,8 @@ export default function AddCourse({ onCreate }: Props) {
       setCourseName("");
       setImageURL("");
       setCoursePath("");
+      setCategories("");
+      setCourseType("");
     }
   };
 
@@ -122,6 +132,29 @@ export default function AddCourse({ onCreate }: Props) {
             id="nome"
             value={courseName}
             onChange={(e) => setCourseName(e.target.value)}
+          />
+          <div className="my-2 flex items-center gap-4">
+            <Label htmlFor="courseType" className="text-right">
+              Tipo de Curso
+            </Label>
+          </div>
+          <Input
+            type="text"
+            id="courseType"
+            value={courseType}
+            onChange={(e) => setCourseType(e.target.value)}
+          />
+          <div className="my-2 flex items-center gap-4">
+            <Label htmlFor="categories" className="text-right">
+              Categorias/Tags (separadas por vírgula)
+            </Label>
+          </div>
+          <Input
+            type="text"
+            id="categories"
+            placeholder="Ex: Frontend, React, JavaScript"
+            value={categories}
+            onChange={(e) => setCategories(e.target.value)}
           />
           <div>
             <h3>Quer colocar alguma capa? se sim, só escolher...</h3>

@@ -43,6 +43,12 @@ export default function EditCourse({ course, onUpdate }: Props) {
 
     formData.append("name", currentCourse.name);
     formData.append("path", currentCourse.path);
+    if (currentCourse.categories) {
+      formData.append("categories", currentCourse.categories);
+    }
+    if (currentCourse.course_type) {
+      formData.append("course_type", currentCourse.course_type);
+    }
 
     if (
       fileInputRefEdit.current &&
@@ -94,7 +100,7 @@ export default function EditCourse({ course, onUpdate }: Props) {
   };
 
   return (
-    <Dialog open={isOpen}>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button
           size="sm"
@@ -121,6 +127,19 @@ export default function EditCourse({ course, onUpdate }: Props) {
           id="name"
           name="name"
           value={currentCourse?.name || ""}
+          onChange={handleInputChange}
+        />
+        <div className="my-2 flex items-center gap-4">
+          <Label htmlFor="categories" className="text-right">
+            Categorias/Tags (separadas por vírgula)
+          </Label>
+        </div>
+        <Input
+          type="text"
+          id="categories"
+          name="categories"
+          placeholder="Ex: Frontend, React, JavaScript"
+          value={currentCourse?.categories || ""}
           onChange={handleInputChange}
         />
         <div>

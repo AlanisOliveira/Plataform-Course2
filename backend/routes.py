@@ -24,7 +24,7 @@ def debug_routes():
 @app.route('/api/courses', methods=['GET'])
 def list_courses():
     courses = Course.query.all()
-    return jsonify([{'id': course.id, 'name': course.name, 'path': course.path, 'isCoverUrl': course.isCoverUrl, 'fileCover': course.fileCover, 'urlCover': course.urlCover } for course in courses])
+    return jsonify([{'id': course.id, 'name': course.name, 'path': course.path, 'isCoverUrl': course.isCoverUrl, 'fileCover': course.fileCover, 'urlCover': course.urlCover, 'categories': course.categories, 'course_type': course.course_type } for course in courses])
 
 @app.route('/api/courses/<int:course_id>/lessons', methods=['GET'])
 def list_lessons_for_course(course_id):
@@ -95,6 +95,8 @@ def add_course():
     try:
         name = request.form['name']
         path = request.form['path']
+        categories = request.form.get('categories', None)
+        course_type = request.form.get('course_type', None)
 
         isCoverUrl = 1 if 'imageURL' in request.form and request.form['imageURL'] else 0
         urlCover = request.form.get('imageURL', None)
@@ -121,7 +123,9 @@ def add_course():
             path=path,
             isCoverUrl=isCoverUrl,
             fileCover=fileCover,
-            urlCover=urlCover if isCoverUrl else None
+            urlCover=urlCover if isCoverUrl else None,
+            categories=categories,
+            course_type=course_type
         )
         print(f"Saving course with file cover: {course.fileCover}")
         db.session.add(course)
@@ -161,6 +165,8 @@ def update_course(course_id):
     old_path = course.path
     course.name = request.form['name']
     course.path = request.form['path']
+    course.categories = request.form.get('categories', None)
+    course.course_type = request.form.get('course_type', None)
     isCoverUrl = 1 if 'imageURL' in request.form and request.form['imageURL'] else 0
 
     if isCoverUrl:
@@ -181,9 +187,9 @@ def update_course(course_id):
     db.session.commit()
     if old_path != course.path:
         list_and_register_lessons(course.path, course_id)
-    
 
-    return jsonify({'id': course.id, 'name': course.name, 'path': course.path, 'isCoverUrl': course.isCoverUrl, 'fileCover': course.fileCover, 'urlCover': course.urlCover})
+
+    return jsonify({'id': course.id, 'name': course.name, 'path': course.path, 'isCoverUrl': course.isCoverUrl, 'fileCover': course.fileCover, 'urlCover': course.urlCover, 'categories': course.categories, 'course_type': course.course_type})
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
