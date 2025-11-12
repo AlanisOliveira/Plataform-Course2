@@ -98,6 +98,13 @@ def add_course():
         categories = request.form.get('categories', None)
         course_type = request.form.get('course_type', None)
 
+        # VALIDAÇÃO: Verificar se o path existe ANTES de criar o curso
+        if not os.path.exists(path):
+            return jsonify({'error': f'Path do curso não existe: {path}'}), 400
+
+        if not os.path.isdir(path):
+            return jsonify({'error': f'Path não é um diretório válido: {path}'}), 400
+
         isCoverUrl = 1 if 'imageURL' in request.form and request.form['imageURL'] else 0
         urlCover = request.form.get('imageURL', None)
 
@@ -131,12 +138,21 @@ def add_course():
         db.session.add(course)
         db.session.commit()
 
-        list_and_register_lessons(request.form['path'], course.id)
+        # Registrar lições com tratamento de erro
+        try:
+            list_and_register_lessons(request.form['path'], course.id)
+        except (FileNotFoundError, NotADirectoryError) as e:
+            # Se falhar ao registrar lições, fazer rollback do curso
+            db.session.delete(course)
+            db.session.commit()
+            return jsonify({'error': f'Erro ao registrar lições: {str(e)}'}), 400
 
         return jsonify({'id': course.id, 'name': course.name}), 201
     except KeyError as e:
+        db.session.rollback()
         return jsonify({'error': f'Campo obrigatório faltando: {str(e)}'}), 400
     except Exception as e:
+        db.session.rollback()
         print(f"Erro ao adicionar curso: {str(e)}")
         return jsonify({'error': f'Erro ao adicionar curso: {str(e)}'}), 500
 
@@ -161,35 +177,58 @@ def get_lesson_elapsed_time(lesson_id):
 
 @app.route('/api/courses/<int:course_id>', methods=['PUT'])
 def update_course(course_id):
-    course = Course.query.get_or_404(course_id)
-    old_path = course.path
-    course.name = request.form['name']
-    course.path = request.form['path']
-    course.categories = request.form.get('categories', None)
-    course.course_type = request.form.get('course_type', None)
-    isCoverUrl = 1 if 'imageURL' in request.form and request.form['imageURL'] else 0
+    try:
+        course = Course.query.get_or_404(course_id)
+        old_path = course.path
+        new_path = request.form['path']
 
-    if isCoverUrl:
-        course.urlCover = request.form.get('imageURL')
-        course.isCoverUrl = 1
-        course.fileCover = None
-    else:
-        image_file = request.files.get('imageFile')
-        if image_file:
-            filename = secure_filename(image_file.filename)
-            course.fileCover = filename
-            course.isCoverUrl = 0
-            course.urlCover = None
-            image_file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        # VALIDAÇÃO: Se o path mudou, verificar se o novo path é válido
+        if old_path != new_path:
+            if not os.path.exists(new_path):
+                return jsonify({'error': f'Path do curso não existe: {new_path}'}), 400
+
+            if not os.path.isdir(new_path):
+                return jsonify({'error': f'Path não é um diretório válido: {new_path}'}), 400
+
+        course.name = request.form['name']
+        course.path = new_path
+        course.categories = request.form.get('categories', None)
+        course.course_type = request.form.get('course_type', None)
+        isCoverUrl = 1 if 'imageURL' in request.form and request.form['imageURL'] else 0
+
+        if isCoverUrl:
+            course.urlCover = request.form.get('imageURL')
+            course.isCoverUrl = 1
+            course.fileCover = None
         else:
-            course.fileCover = course.fileCover
-    print(f"Saving course with file cover: {course.fileCover}")
-    db.session.commit()
-    if old_path != course.path:
-        list_and_register_lessons(course.path, course_id)
+            image_file = request.files.get('imageFile')
+            if image_file:
+                filename = secure_filename(image_file.filename)
+                course.fileCover = filename
+                course.isCoverUrl = 0
+                course.urlCover = None
+                image_file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            else:
+                course.fileCover = course.fileCover
+        print(f"Saving course with file cover: {course.fileCover}")
+        db.session.commit()
 
+        # Se o path mudou, re-registrar as lições
+        if old_path != course.path:
+            try:
+                list_and_register_lessons(course.path, course_id)
+            except (FileNotFoundError, NotADirectoryError) as e:
+                # Se falhar, reverter o path para o antigo
+                course.path = old_path
+                db.session.commit()
+                return jsonify({'error': f'Erro ao registrar lições no novo path: {str(e)}'}), 400
 
-    return jsonify({'id': course.id, 'name': course.name, 'path': course.path, 'isCoverUrl': course.isCoverUrl, 'fileCover': course.fileCover, 'urlCover': course.urlCover, 'categories': course.categories, 'course_type': course.course_type})
+        return jsonify({'id': course.id, 'name': course.name, 'path': course.path, 'isCoverUrl': course.isCoverUrl, 'fileCover': course.fileCover, 'urlCover': course.urlCover, 'categories': course.categories, 'course_type': course.course_type})
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Erro ao atualizar curso: {str(e)}")
+        return jsonify({'error': f'Erro ao atualizar curso: {str(e)}'}), 500
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):

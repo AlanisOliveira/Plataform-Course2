@@ -112,16 +112,26 @@ def run_migrations():
         print("Todas as migrações já foram aplicadas. Banco de dados atualizado!")
 
 with app.app_context():
+    # Verificar se o banco de dados já existe antes de criar tabelas
+    # Isso previne a criação de um banco vazio se o path estiver incorreto
+    database_exists = False
+
     try:
-        db.create_all()
-    except Exception as e:
-        # Tables might already exist, check if we can query them
+        # Tenta verificar se as tabelas já existem
+        db.session.execute(db.text("SELECT 1 FROM course LIMIT 1"))
+        database_exists = True
+        print("Banco de dados existente detectado. Usando banco atual.")
+    except Exception as check_error:
+        print(f"Banco de dados não encontrado ou vazio: {check_error}")
+
+        # Apenas cria as tabelas se o banco realmente não existir
         try:
-            db.session.execute(db.text("SELECT 1 FROM course LIMIT 1"))
-            print("Database tables already exist, skipping creation")
-        except:
-            # Tables don't exist and create_all failed, this is a real error
-            print(f"Error creating database tables: {e}")
+            print("Criando estrutura do banco de dados...")
+            db.create_all()
+            print("Tabelas do banco de dados criadas com sucesso!")
+        except Exception as create_error:
+            print(f"ERRO CRÍTICO: Falha ao criar banco de dados: {create_error}")
+            print("Verifique se o diretório de dados existe e tem permissões corretas.")
             raise
 
     # Executar migrações após garantir que as tabelas existem

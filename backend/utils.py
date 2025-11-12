@@ -4,6 +4,19 @@ from video_utils import get_video_duration_v1
 from app import db, Course
 
 def list_and_register_lessons(course_path, course_id):
+    # CRÍTICO: Validar se o path existe ANTES de deletar as lições
+    # Isso previne perda de dados se o path estiver incorreto
+    if not os.path.exists(course_path):
+        error_msg = f"ERRO: Path do curso não existe: {course_path}"
+        print(error_msg)
+        raise FileNotFoundError(error_msg)
+
+    if not os.path.isdir(course_path):
+        error_msg = f"ERRO: Path do curso não é um diretório: {course_path}"
+        print(error_msg)
+        raise NotADirectoryError(error_msg)
+
+    # Apenas deleta as lições antigas após confirmar que o path é válido
     Lesson.query.filter_by(course_id=course_id).delete()
     list_and_register_lessons_in_directory(course_path, course_id, "")
     db.session.commit()
