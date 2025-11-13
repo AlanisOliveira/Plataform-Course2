@@ -8,7 +8,6 @@ app = Flask(__name__, static_folder="./frontend/dist", static_url_path="")
 app.config.from_object(Config)
 
 db = SQLAlchemy(app)
-# CORS simplificado - como tudo está na mesma origem, não é necessário configuração complexa
 CORS(app)
 
 
@@ -33,6 +32,7 @@ class Lesson(db.Model):
     hierarchy_path = db.Column(db.Text, nullable=False)
     video_url = db.Column(db.String(255))
     pdf_url = db.Column(db.String(255))
+    subtitle_url = db.Column(db.String(255))
     progressStatus = db.Column(db.Text)
     isCompleted = db.Column(db.Integer)
     time_elapsed = db.Column(db.Text)
@@ -46,7 +46,6 @@ def run_migrations():
     """Executa migrações necessárias no banco de dados"""
     migrations_applied = False
 
-    # Migração 1: Adicionar coluna 'notes' à tabela 'course'
     try:
         result = db.session.execute(db.text("PRAGMA table_info(course)"))
         columns = [row[1] for row in result]
@@ -61,7 +60,6 @@ def run_migrations():
         print(f"Erro ao adicionar coluna 'notes' em 'course': {e}")
         db.session.rollback()
 
-    # Migração 2: Adicionar coluna 'categories' à tabela 'course'
     try:
         result = db.session.execute(db.text("PRAGMA table_info(course)"))
         columns = [row[1] for row in result]
@@ -77,7 +75,6 @@ def run_migrations():
             print(f"Erro ao adicionar coluna 'categories' em 'course': {e}")
         db.session.rollback()
 
-    # Migração 3: Adicionar coluna 'notes' à tabela 'lesson'
     try:
         result = db.session.execute(db.text("PRAGMA table_info(lesson)"))
         lesson_columns = [row[1] for row in result]
@@ -92,7 +89,6 @@ def run_migrations():
         print(f"Erro ao adicionar coluna 'notes' em 'lesson': {e}")
         db.session.rollback()
 
-    # Migração 4: Adicionar coluna 'course_type' à tabela 'course'
     try:
         result = db.session.execute(db.text("PRAGMA table_info(course)"))
         columns = [row[1] for row in result]
@@ -108,33 +104,27 @@ def run_migrations():
             print(f"Erro ao adicionar coluna 'course_type' em 'course': {e}")
         db.session.rollback()
 
+    try:
+        result = db.session.execute(db.text("PRAGMA table_info(lesson)"))
+        lesson_columns = [row[1] for row in result]
+
+        if 'subtitle_url' not in lesson_columns:
+            print("Adicionando coluna 'subtitle_url' à tabela 'lesson'...")
+            db.session.execute(db.text("ALTER TABLE lesson ADD COLUMN subtitle_url VARCHAR(255)"))
+            db.session.commit()
+            print("Coluna 'subtitle_url' adicionada à tabela 'lesson' com sucesso!")
+            migrations_applied = True
+    except Exception as e:
+        if "duplicate column name" not in str(e).lower():
+            print(f"Erro ao adicionar coluna 'subtitle_url' em 'lesson': {e}")
+        db.session.rollback()
+
     if not migrations_applied:
         print("Todas as migrações já foram aplicadas. Banco de dados atualizado!")
 
 with app.app_context():
-    # Verificar se o banco de dados já existe antes de criar tabelas
-    # Isso previne a criação de um banco vazio se o path estiver incorreto
-    database_exists = False
+    db.create_all(checkfirst=True)
 
-    try:
-        # Tenta verificar se as tabelas já existem
-        db.session.execute(db.text("SELECT 1 FROM course LIMIT 1"))
-        database_exists = True
-        print("Banco de dados existente detectado. Usando banco atual.")
-    except Exception as check_error:
-        print(f"Banco de dados não encontrado ou vazio: {check_error}")
-
-        # Apenas cria as tabelas se o banco realmente não existir
-        try:
-            print("Criando estrutura do banco de dados...")
-            db.create_all()
-            print("Tabelas do banco de dados criadas com sucesso!")
-        except Exception as create_error:
-            print(f"ERRO CRÍTICO: Falha ao criar banco de dados: {create_error}")
-            print("Verifique se o diretório de dados existe e tem permissões corretas.")
-            raise
-
-    # Executar migrações após garantir que as tabelas existem
     run_migrations()
 
 if __name__ == "__main__":

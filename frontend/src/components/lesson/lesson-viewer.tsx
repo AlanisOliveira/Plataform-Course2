@@ -19,6 +19,11 @@ const getResourcePath = (lesson: Lesson): string => {
   )}`;
 };
 
+const getSubtitlePath = (lesson: Lesson): string | undefined => {
+  if (!lesson.subtitle_url) return undefined;
+  return `/serve-content?path=${encodeURIComponent(lesson.subtitle_url)}`;
+};
+
 type Props = {
   lesson: Lesson | null;
 };
@@ -74,6 +79,7 @@ export default function LessonViewer({ lesson }: Props) {
           lessonId={currentLessonIdRef.current ?? lesson.id}
           onTimeUpdate={handleTimeUpdate}
           timeElapsed={elapsedTime}
+          subtitleSrc={getSubtitlePath(lesson) ? `${apiUrl}${getSubtitlePath(lesson)}` : undefined}
         />
       )}
     </div>

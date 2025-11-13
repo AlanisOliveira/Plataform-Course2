@@ -7,6 +7,7 @@ import {
   MediaPlayer,
   MediaProvider,
   Poster,
+  Track,
   type MediaPlayerInstance,
   type MediaProviderAdapter,
 } from "@vidstack/react";
@@ -23,6 +24,7 @@ interface PlayerProps {
   onTimeUpdate?: (currentTime: number) => void;
   onPlay?: () => void;
   timeElapsed: number;
+  subtitleSrc?: string;
 }
 
 export function Player({
@@ -33,6 +35,7 @@ export function Player({
   onTimeUpdate,
   onPlay,
   timeElapsed,
+  subtitleSrc,
 }: PlayerProps) {
   const [lastElapsedTimeSaved, setLastElapsedTimeSaved] = useState(timeElapsed);
   const [isEndingTriggered, setIsEndingTriggered] = useState(false);
@@ -117,6 +120,15 @@ export function Player({
             src=""
             alt=""
           />
+          {subtitleSrc && (
+            <Track
+              src={subtitleSrc}
+              kind="subtitles"
+              label="Português"
+              srcLang="pt"
+              default
+            />
+          )}
         </MediaProvider>
 
         <VideoLayout thumbnails="" title={title} />

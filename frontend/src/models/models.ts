@@ -21,6 +21,7 @@ export type Lesson = {
   time_elapsed?: number;
   duration: string;
   pdf_url: string;
+  subtitle_url?: string;
 };
 
 export type Module = Record<string, any>;

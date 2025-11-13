@@ -45,6 +45,7 @@ def list_lessons_for_course(course_id):
         'video_url': lesson.video_url,
         'duration': lesson.duration,
         'pdf_url': lesson.pdf_url,
+        'subtitle_url': lesson.subtitle_url,
     } for lesson in lessons]
     
     return jsonify(response)

@@ -4,8 +4,6 @@ from video_utils import get_video_duration_v1
 from app import db, Course
 
 def list_and_register_lessons(course_path, course_id):
-    # CRÍTICO: Validar se o path existe ANTES de deletar as lições
-    # Isso previne perda de dados se o path estiver incorreto
     if not os.path.exists(course_path):
         error_msg = f"ERRO: Path do curso não existe: {course_path}"
         print(error_msg)
@@ -16,7 +14,6 @@ def list_and_register_lessons(course_path, course_id):
         print(error_msg)
         raise NotADirectoryError(error_msg)
 
-    # Apenas deleta as lições antigas após confirmar que o path é válido
     Lesson.query.filter_by(course_id=course_id).delete()
     list_and_register_lessons_in_directory(course_path, course_id, "")
     db.session.commit()
@@ -34,9 +31,17 @@ def list_and_register_lessons_in_directory(directory, course_id, hierarchy_prefi
             is_pdf = entry.name.lower().endswith(".pdf")
 
             duration = get_video_duration_v1(entry.path)
-            
+
             video_url = "" if is_pdf else entry.path
             pdf_url = entry.path if is_pdf else ""
+
+            subtitle_url = ""
+            if not is_pdf:
+                base_path = os.path.splitext(entry.path)[0]
+                vtt_path = f"{base_path}.vtt"
+                if os.path.exists(vtt_path):
+                    subtitle_url = vtt_path
+                    print(f"Legenda detectada: {vtt_path}")
 
             lesson = Lesson(
                 course_id=course_id,
@@ -48,7 +53,8 @@ def list_and_register_lessons_in_directory(directory, course_id, hierarchy_prefi
                 progressStatus='not_started',
                 isCompleted=0,
                 time_elapsed='0',
-                pdf_url=pdf_url
+                pdf_url=pdf_url,
+                subtitle_url=subtitle_url
             )
             db.session.add(lesson)
 

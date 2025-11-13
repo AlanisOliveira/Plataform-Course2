@@ -21,5 +21,4 @@ class Config:
     UPLOAD_FOLDER = 'uploads'
     SECRET_KEY = 'your_secret_key_here'
 
-    # Log do path do banco para debug
     print(f"Configuração do banco de dados: {SQLALCHEMY_DATABASE_URI}")
