@@ -123,7 +123,7 @@ def run_migrations():
         print("Todas as migrações já foram aplicadas. Banco de dados atualizado!")
 
 with app.app_context():
-    db.create_all(checkfirst=True)
+    db.create_all()
 
     run_migrations()
 
