@@ -1,8 +1,6 @@
 import { Course } from "@/models/models";
-import { getAllCourses } from "@/services/getAllCourses";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { Card, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { useNavigate } from "react-router-dom";
 import CourseItem from "./course-item";
 import useApiUrl from "@/hooks/useApiUrl";
@@ -30,8 +28,11 @@ export default function CoursesList({
 
   const loadCourses = async () => {
     try {
-      const courses = await getAllCourses(apiUrl);
+      // Usar o novo endpoint com informações de progresso
+      const response = await fetch(`${apiUrl}/api/courses/with-progress`);
+      if (!response.ok) throw new Error("Falha ao buscar cursos");
 
+      const courses = await response.json();
       if (courses) {
         setCourses(courses);
         return;
@@ -98,18 +99,13 @@ export default function CoursesList({
         </div>
       )}
 
-      
-
-      {/* Containers por Tipo */}
+      {/* Cursos agrupados por tipo */}
       {types.length > 0 ? (
         types.map((type) => (
           <section key={type} className="mb-12 px-4">
-            {/* Nome da Categoria em Negrito */}
-            <h3 className="text-slate-900 dark:text-white text-xl font-bold mb-6">
+            <h3 className="text-slate-900 dark:text-white text-2xl font-bold mb-6">
               {type}
             </h3>
-
-            {/* Grid de Cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {coursesByType[type].map((course) => (
                 <CourseItem

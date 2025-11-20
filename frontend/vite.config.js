@@ -3,7 +3,7 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  base: "./",
+  base: "/",
   plugins: [
     react({
       include: [/\.js$/, /\.jsx$/, /\.tsx$/, /\.md$/],
@@ -17,27 +17,32 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "https://plataform-course2-1.onrender.com",
+        target: "http://127.0.0.1:9823",
         changeOrigin: true,
         secure: false,
       },
       "/serve-video": {
-        target: "https://plataform-course2-1.onrender.com",
+        target: "http://127.0.0.1:9823",
         changeOrigin: true,
         secure: false,
       },
       "/serve-txt": {
-        target: "https://plataform-course2-1.onrender.com",
+        target: "http://127.0.0.1:9823",
         changeOrigin: true,
         secure: false,
       },
       "/serve-files": {
-        target: "https://plataform-course2-1.onrender.com",
+        target: "http://127.0.0.1:9823",
         changeOrigin: true,
         secure: false,
       },
       "/uploads": {
-        target: "https://plataform-course2-1.onrender.com",
+        target: "http://127.0.0.1:9823",
+        changeOrigin: true,
+        secure: false,
+      },
+      "/serve-content": {
+        target: "http://127.0.0.1:9823",
         changeOrigin: true,
         secure: false,
       },

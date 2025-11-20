@@ -5,7 +5,7 @@ import { Course } from "@/models/models";
 import useApiUrl from "@/hooks/useApiUrl";
 import AddCourse from "@/components/courses/add-course";
 
-export default function CoursesPage() {
+export default function RecipesManage() {
   const [courses, setCourses] = useState<Course[]>([]);
 
   const { apiUrl } = useApiUrl();
@@ -32,7 +32,7 @@ export default function CoursesPage() {
         <div className="space-y-6">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold">Biblioteca de Receitas</h1>
+              <h1 className="text-3xl font-bold">Gestão de Receitas</h1>
               <p className="text-slate-600 dark:text-slate-400 mt-2">
                 {courses.length} {courses.length === 1 ? 'receita' : 'receitas'} cadastradas
               </p>

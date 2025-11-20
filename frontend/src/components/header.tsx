@@ -22,8 +22,21 @@ function Header() {
         </div>
         <div className="flex flex-wrap gap-4 items-center">
           <APIUrl />
+
+          {/* Receitas */}
+          <Button onClick={() => handleNavigate("/")} variant="link">
+            Dashboard
+          </Button>
           <Button onClick={() => handleNavigate("/receitas")} variant="link">
+            Biblioteca de Receitas
+          </Button>
+          <Button onClick={() => handleNavigate("/receitas/gestao")} variant="link">
             Gestão de Receitas
+          </Button>
+
+          {/* Livros */}
+          <Button onClick={() => handleNavigate("/livros")} variant="link">
+            Livros
           </Button>
 
           <Button

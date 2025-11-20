@@ -2,11 +2,12 @@
 from flask import request, jsonify, send_file, abort, send_from_directory, render_template, make_response
 from werkzeug.utils import secure_filename
 import os
-from sqlalchemy import event
+from datetime import datetime
+from sqlalchemy import event, func, or_
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import joinedload
 
-from app import app, db, Lesson, Course
+from app import app, db, Lesson, Course, Book, BookNote, BookHighlight, BookBookmark
 from utils import list_and_register_lessons, scan_data_directory_and_register_courses
 from video_utils import open_video
 
@@ -25,6 +26,54 @@ def debug_routes():
 def list_courses():
     courses = Course.query.all()
     return jsonify([{'id': course.id, 'name': course.name, 'path': course.path, 'isCoverUrl': course.isCoverUrl, 'fileCover': course.fileCover, 'urlCover': course.urlCover, 'categories': course.categories, 'course_type': course.course_type } for course in courses])
+
+@app.route('/api/courses/with-progress', methods=['GET'])
+def list_courses_with_progress():
+    courses = Course.query.all()
+    result = []
+
+    for course in courses:
+        # Calcular porcentagem de conclusão
+        total_lessons = Lesson.query.filter_by(course_id=course.id).count()
+        if total_lessons == 0:
+            completion_percentage = 0
+        else:
+            completed_lessons = Lesson.query.filter_by(course_id=course.id, isCompleted=1).count()
+            completion_percentage = (completed_lessons / total_lessons) * 100
+
+        # Verificar se tem progresso (alguma lição iniciada)
+        has_progress = Lesson.query.filter(
+            Lesson.course_id == course.id,
+            or_(
+                Lesson.isCompleted == 1,
+                Lesson.time_elapsed != None,
+                Lesson.time_elapsed != '0'
+            )
+        ).first() is not None
+
+        # Obter a última lição assistida (última com updated_at)
+        last_lesson = Lesson.query.filter_by(course_id=course.id)\
+            .filter(Lesson.updated_at != None)\
+            .order_by(Lesson.updated_at.desc())\
+            .first()
+
+        last_watched_at = last_lesson.updated_at.isoformat() if last_lesson and last_lesson.updated_at else None
+
+        result.append({
+            'id': course.id,
+            'name': course.name,
+            'path': course.path,
+            'isCoverUrl': course.isCoverUrl,
+            'fileCover': course.fileCover,
+            'urlCover': course.urlCover,
+            'categories': course.categories,
+            'course_type': course.course_type,
+            'completion_percentage': completion_percentage,
+            'has_progress': has_progress,
+            'last_watched_at': last_watched_at
+        })
+
+    return jsonify(result)
 
 @app.route('/api/courses/<int:course_id>/lessons', methods=['GET'])
 def list_lessons_for_course(course_id):
@@ -84,6 +133,9 @@ def update_lesson_for_end_progress():
             lesson.isCompleted = is_completed
         if time_elapsed is not None:
             lesson.time_elapsed = time_elapsed
+
+        # Atualizar timestamp de última visualização
+        lesson.updated_at = datetime.utcnow()
 
         db.session.commit()
         return jsonify({'message': 'Progresso da lição atualizado com sucesso'})
@@ -306,6 +358,387 @@ def update_lesson_notes(lesson_id):
     lesson.notes = data.get('notes', '')
     db.session.commit()
     return jsonify({'message': 'Notas da aula atualizadas com sucesso', 'notes': lesson.notes})
+
+
+# ==================== ROTAS PARA LIVROS ====================
+
+@app.route('/api/books', methods=['GET'])
+def list_books():
+    books = Book.query.all()
+    return jsonify([{
+        'id': book.id,
+        'title': book.title,
+        'author': book.author,
+        'file_path': book.file_path,
+        'file_type': book.file_type,
+        'isCoverUrl': book.isCoverUrl,
+        'fileCover': book.fileCover,
+        'urlCover': book.urlCover,
+        'categories': book.categories,
+        'book_type': book.book_type,
+        'current_page': book.current_page,
+        'total_pages': book.total_pages,
+        'epub_cfi_position': book.epub_cfi_position,
+        'is_read': book.is_read,
+        'last_read_at': book.last_read_at.isoformat() if book.last_read_at else None
+    } for book in books])
+
+@app.route('/api/books', methods=['POST'])
+def add_book():
+    try:
+        title = request.form['title']
+        file_path = request.form['file_path']
+        author = request.form.get('author', None)
+        categories = request.form.get('categories', None)
+        book_type = request.form.get('book_type', None)
+
+        # Validar se o arquivo existe
+        if not os.path.exists(file_path):
+            return jsonify({'error': f'Arquivo não encontrado: {file_path}'}), 400
+
+        # Determinar tipo do arquivo
+        file_extension = os.path.splitext(file_path)[1].lower()
+        if file_extension == '.pdf':
+            file_type = 'pdf'
+        elif file_extension == '.epub':
+            file_type = 'epub'
+        else:
+            return jsonify({'error': 'Tipo de arquivo não suportado. Use PDF ou EPUB.'}), 400
+
+        isCoverUrl = 1 if 'imageURL' in request.form and request.form['imageURL'] else 0
+        urlCover = request.form.get('imageURL', None)
+
+        if not isCoverUrl:
+            image_file = request.files.get('imageFile')
+            if image_file:
+                filename = secure_filename(image_file.filename)
+                fileCover = filename
+                upload_folder = app.config['UPLOAD_FOLDER']
+                if not os.path.exists(upload_folder):
+                    os.makedirs(upload_folder)
+                image_file.save(os.path.join(upload_folder, filename))
+            else:
+                fileCover = None
+        else:
+            fileCover = None
+
+        book = Book(
+            title=title,
+            author=author,
+            file_path=file_path,
+            file_type=file_type,
+            isCoverUrl=isCoverUrl,
+            fileCover=fileCover,
+            urlCover=urlCover if isCoverUrl else None,
+            categories=categories,
+            book_type=book_type
+        )
+
+        db.session.add(book)
+        db.session.commit()
+
+        return jsonify({'id': book.id, 'title': book.title}), 201
+    except KeyError as e:
+        db.session.rollback()
+        return jsonify({'error': f'Campo obrigatório faltando: {str(e)}'}), 400
+    except Exception as e:
+        db.session.rollback()
+        print(f"Erro ao adicionar livro: {str(e)}")
+        return jsonify({'error': f'Erro ao adicionar livro: {str(e)}'}), 500
+
+@app.route('/api/books/<int:book_id>', methods=['GET'])
+def get_book(book_id):
+    book = Book.query.get_or_404(book_id)
+    return jsonify({
+        'id': book.id,
+        'title': book.title,
+        'author': book.author,
+        'file_path': book.file_path,
+        'file_type': book.file_type,
+        'isCoverUrl': book.isCoverUrl,
+        'fileCover': book.fileCover,
+        'urlCover': book.urlCover,
+        'categories': book.categories,
+        'book_type': book.book_type,
+        'current_page': book.current_page,
+        'total_pages': book.total_pages,
+        'epub_cfi_position': book.epub_cfi_position,
+        'is_read': book.is_read,
+        'last_read_at': book.last_read_at.isoformat() if book.last_read_at else None
+    })
+
+@app.route('/api/books/<int:book_id>', methods=['PUT'])
+def update_book(book_id):
+    try:
+        book = Book.query.get_or_404(book_id)
+
+        book.title = request.form.get('title', book.title)
+        book.author = request.form.get('author', book.author)
+        book.file_path = request.form.get('file_path', book.file_path)
+        book.categories = request.form.get('categories', book.categories)
+        book.book_type = request.form.get('book_type', book.book_type)
+
+        isCoverUrl = 1 if 'imageURL' in request.form and request.form['imageURL'] else 0
+
+        if isCoverUrl:
+            book.urlCover = request.form.get('imageURL')
+            book.isCoverUrl = 1
+            book.fileCover = None
+        else:
+            image_file = request.files.get('imageFile')
+            if image_file:
+                filename = secure_filename(image_file.filename)
+                book.fileCover = filename
+                book.isCoverUrl = 0
+                book.urlCover = None
+                image_file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+
+        db.session.commit()
+        return jsonify({'id': book.id, 'title': book.title})
+    except Exception as e:
+        db.session.rollback()
+        print(f"Erro ao atualizar livro: {str(e)}")
+        return jsonify({'error': f'Erro ao atualizar livro: {str(e)}'}), 500
+
+@app.route('/api/books/<int:book_id>', methods=['DELETE'])
+def delete_book(book_id):
+    book = Book.query.get_or_404(book_id)
+
+    if book.fileCover:
+        try:
+            os.remove(os.path.join(app.config['UPLOAD_FOLDER'], book.fileCover))
+        except FileNotFoundError:
+            print(f"Arquivo {book.fileCover} não encontrado.")
+
+    db.session.delete(book)
+    db.session.commit()
+    return jsonify({'message': 'Livro deletado com sucesso'})
+
+@app.route('/api/books/<int:book_id>/progress', methods=['POST'])
+def update_book_progress(book_id):
+    try:
+        book = Book.query.get_or_404(book_id)
+        data = request.json
+
+        if 'current_page' in data:
+            book.current_page = data['current_page']
+        if 'total_pages' in data:
+            book.total_pages = data['total_pages']
+        if 'is_read' in data:
+            book.is_read = data['is_read']
+        if 'epub_cfi_position' in data:
+            book.epub_cfi_position = data['epub_cfi_position']
+
+        book.last_read_at = datetime.utcnow()
+
+        db.session.commit()
+        return jsonify({'message': 'Progresso atualizado com sucesso'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/books/<int:book_id>/notes', methods=['GET'])
+def get_book_notes(book_id):
+    book = Book.query.get_or_404(book_id)
+    return jsonify({'notes': book.notes if book.notes else ''})
+
+@app.route('/api/books/<int:book_id>/notes', methods=['PUT'])
+def update_book_notes(book_id):
+    book = Book.query.get_or_404(book_id)
+    data = request.json
+    book.notes = data.get('notes', '')
+    db.session.commit()
+    return jsonify({'message': 'Notas atualizadas com sucesso', 'notes': book.notes})
+
+
+# ==================== ROTAS PARA NOTAS DETALHADAS (BookNotes) ====================
+
+@app.route('/api/books/<int:book_id>/book-notes', methods=['GET'])
+def list_book_notes(book_id):
+    """Listar todas as notas de um livro"""
+    Book.query.get_or_404(book_id)  # Verificar se livro existe
+    notes = BookNote.query.filter_by(book_id=book_id).order_by(BookNote.created_at.desc()).all()
+    
+    return jsonify([{
+        'id': note.id,
+        'book_id': note.book_id,
+        'page_number': note.page_number,
+        'cfi_position': note.cfi_position,
+        'note_text': note.note_text,
+        'created_at': note.created_at.isoformat() if note.created_at else None,
+        'updated_at': note.updated_at.isoformat() if note.updated_at else None
+    } for note in notes])
+
+@app.route('/api/books/<int:book_id>/book-notes', methods=['POST'])
+def create_book_note(book_id):
+    """Criar nova nota"""
+    try:
+        Book.query.get_or_404(book_id)
+        data = request.json
+        
+        note = BookNote(
+            book_id=book_id,
+            page_number=data.get('page_number'),
+            cfi_position=data.get('cfi_position'),
+            note_text=data.get('note_text', '')
+        )
+        
+        db.session.add(note)
+        db.session.commit()
+        
+        return jsonify({
+            'id': note.id,
+            'message': 'Nota criada com sucesso'
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/books/<int:book_id>/book-notes/<int:note_id>', methods=['PUT'])
+def update_book_note(book_id, note_id):
+    """Editar nota existente"""
+    try:
+        note = BookNote.query.filter_by(id=note_id, book_id=book_id).first_or_404()
+        data = request.json
+        
+        note.note_text = data.get('note_text', note.note_text)
+        note.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        return jsonify({'message': 'Nota atualizada com sucesso'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/books/<int:book_id>/book-notes/<int:note_id>', methods=['DELETE'])
+def delete_book_note(book_id, note_id):
+    """Deletar nota"""
+    try:
+        note = BookNote.query.filter_by(id=note_id, book_id=book_id).first_or_404()
+        db.session.delete(note)
+        db.session.commit()
+        
+        return jsonify({'message': 'Nota deletada com sucesso'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+# ==================== ROTAS PARA DESTAQUES ====================
+
+@app.route('/api/books/<int:book_id>/highlights', methods=['GET'])
+def list_book_highlights(book_id):
+    """Listar todos os destaques de um livro"""
+    Book.query.get_or_404(book_id)
+    highlights = BookHighlight.query.filter_by(book_id=book_id).order_by(BookHighlight.created_at.desc()).all()
+    
+    return jsonify([{
+        'id': h.id,
+        'book_id': h.book_id,
+        'page_number': h.page_number,
+        'cfi_position': h.cfi_position,
+        'cfi_range': h.cfi_range,
+        'highlighted_text': h.highlighted_text,
+        'color': h.color,
+        'created_at': h.created_at.isoformat() if h.created_at else None
+    } for h in highlights])
+
+@app.route('/api/books/<int:book_id>/highlights', methods=['POST'])
+def create_book_highlight(book_id):
+    """Criar novo destaque"""
+    try:
+        Book.query.get_or_404(book_id)
+        data = request.json
+        
+        highlight = BookHighlight(
+            book_id=book_id,
+            page_number=data.get('page_number'),
+            cfi_position=data.get('cfi_position'),
+            cfi_range=data.get('cfi_range'),
+            highlighted_text=data.get('highlighted_text', ''),
+            color=data.get('color', 'yellow')
+        )
+        
+        db.session.add(highlight)
+        db.session.commit()
+        
+        return jsonify({
+            'id': highlight.id,
+            'message': 'Destaque criado com sucesso'
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/books/<int:book_id>/highlights/<int:highlight_id>', methods=['DELETE'])
+def delete_book_highlight(book_id, highlight_id):
+    """Deletar destaque"""
+    try:
+        highlight = BookHighlight.query.filter_by(id=highlight_id, book_id=book_id).first_or_404()
+        db.session.delete(highlight)
+        db.session.commit()
+        
+        return jsonify({'message': 'Destaque deletado com sucesso'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+# ==================== ROTAS PARA MARCADORES ====================
+
+@app.route('/api/books/<int:book_id>/bookmarks', methods=['GET'])
+def list_book_bookmarks(book_id):
+    """Listar todos os marcadores de um livro"""
+    Book.query.get_or_404(book_id)
+    bookmarks = BookBookmark.query.filter_by(book_id=book_id).order_by(BookBookmark.created_at.desc()).all()
+    
+    return jsonify([{
+        'id': b.id,
+        'book_id': b.book_id,
+        'page_number': b.page_number,
+        'cfi_position': b.cfi_position,
+        'name': b.name,
+        'created_at': b.created_at.isoformat() if b.created_at else None
+    } for b in bookmarks])
+
+@app.route('/api/books/<int:book_id>/bookmarks', methods=['POST'])
+def create_book_bookmark(book_id):
+    """Criar novo marcador"""
+    try:
+        Book.query.get_or_404(book_id)
+        data = request.json
+        
+        bookmark = BookBookmark(
+            book_id=book_id,
+            page_number=data.get('page_number'),
+            cfi_position=data.get('cfi_position'),
+            name=data.get('name', f"Marcador {datetime.utcnow().strftime('%d/%m/%Y %H:%M')}")
+        )
+        
+        db.session.add(bookmark)
+        db.session.commit()
+        
+        return jsonify({
+            'id': bookmark.id,
+            'message': 'Marcador criado com sucesso'
+        }), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/books/<int:book_id>/bookmarks/<int:bookmark_id>', methods=['DELETE'])
+def delete_book_bookmark(book_id, bookmark_id):
+    """Deletar marcador"""
+    try:
+        bookmark = BookBookmark.query.filter_by(id=bookmark_id, book_id=book_id).first_or_404()
+        db.session.delete(bookmark)
+        db.session.commit()
+        
+        return jsonify({'message': 'Marcador deletado com sucesso'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 
 
 # Rota catch-all para React Router - DEVE SER A ÚLTIMA ROTA

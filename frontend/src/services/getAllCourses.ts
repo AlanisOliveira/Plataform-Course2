@@ -3,7 +3,7 @@ import axios from "axios";
 
 export async function getAllCourses(apiUrl: string) {
   try {
-    const res = await axios.get<Course[]>(`${apiUrl}/api/courses`);
+    const res = await axios.get<Course[]>(`${apiUrl}/api/courses/with-progress`);
 
     return res.data;
   } catch {
