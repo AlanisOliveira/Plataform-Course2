@@ -10,11 +10,10 @@ services:
     ports:
       - "${PORT:-9823}:9823"
     volumes:
-      # Path absoluto para dados persistentes (configurado em .env)
-      # NUNCA mude DATA_PATH depois de configurar!
-      - ${DATA_PATH}/data:/app/data
-      - ${DATA_PATH}/uploads:/app/uploads
-      - ${DATA_PATH}/backups:/app/backups
+      # Volumes nomeados FIXOS - NUNCA serão perdidos mesmo com rebuild
+      - plataforma-cursos-data:/app/data
+      - plataforma-cursos-uploads:/app/uploads
+      - plataforma-cursos-backups:/app/backups
 
       # Volume de cursos - configurado via variável de ambiente
       # Configure COURSES_PATH no arquivo .env
@@ -32,6 +31,21 @@ services:
       retries: 3
       start_period: 40s
 
+  # Interface web para gerenciar o banco SQLite
+  adminer:
+    image: adminer:latest
+    container_name: plataforma-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # Acesso ao volume do banco de dados
+      - plataforma-cursos-data:/data:ro
+    environment:
+      - ADMINER_DEFAULT_SERVER=sqlite
+    networks:
+      - plataforma-network
+
   watchtower:
     image: containrrr/watchtower
     container_name: watchtower-plataforma
@@ -47,6 +61,19 @@ services:
     command: plataforma-cursos
     networks:
       - plataforma-network
+
+# Volumes nomeados com prefixo fixo
+# NUNCA renomeie estes volumes!
+volumes:
+  plataforma-cursos-data:
+    name: plataforma-cursos-data
+    driver: local
+  plataforma-cursos-uploads:
+    name: plataforma-cursos-uploads
+    driver: local
+  plataforma-cursos-backups:
+    name: plataforma-cursos-backups
+    driver: local
 
 networks:
   plataforma-network:
