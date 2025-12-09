@@ -10,10 +10,9 @@ services:
     ports:
       - "${PORT:-9823}:9823"
     volumes:
-      # Persistir banco de dados SQLite
-      - ./data:/app/data
-      # Persistir uploads de capas de cursos
-      - ./uploads:/app/uploads
+      # Named volumes para persistência garantida no ZimaOS
+      - plataforma-data:/app/data
+      - plataforma-uploads:/app/uploads
 
       # Volume de cursos - configurado via variável de ambiente
       # Configure COURSES_PATH no arquivo .env
@@ -46,6 +45,12 @@ services:
     command: plataforma-cursos
     networks:
       - plataforma-network
+
+volumes:
+  plataforma-data:
+    driver: local
+  plataforma-uploads:
+    driver: local
 
 networks:
   plataforma-network:
