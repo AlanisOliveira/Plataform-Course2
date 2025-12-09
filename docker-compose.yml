@@ -10,9 +10,11 @@ services:
     ports:
       - "${PORT:-9823}:9823"
     volumes:
-      # Named volumes para persistência garantida no ZimaOS
-      - plataforma-data:/app/data
-      - plataforma-uploads:/app/uploads
+      # Path absoluto para dados persistentes (configurado em .env)
+      # NUNCA mude DATA_PATH depois de configurar!
+      - ${DATA_PATH}/data:/app/data
+      - ${DATA_PATH}/uploads:/app/uploads
+      - ${DATA_PATH}/backups:/app/backups
 
       # Volume de cursos - configurado via variável de ambiente
       # Configure COURSES_PATH no arquivo .env
@@ -45,12 +47,6 @@ services:
     command: plataforma-cursos
     networks:
       - plataforma-network
-
-volumes:
-  plataforma-data:
-    driver: local
-  plataforma-uploads:
-    driver: local
 
 networks:
   plataforma-network:

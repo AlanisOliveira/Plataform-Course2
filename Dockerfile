@@ -36,10 +36,10 @@ COPY backend/ .
 COPY --from=frontend-builder /frontend/dist ./frontend/dist
 
 # Criar diretórios necessários
-RUN mkdir -p uploads data
+RUN mkdir -p uploads data backups
 
-# Declarar volumes persistentes (dados não serão perdidos ao recriar container)
-VOLUME ["/app/data", "/app/uploads"]
+# Tornar scripts executáveis
+RUN chmod +x init_db.py entrypoint.sh
 
 # Expor porta
 EXPOSE 9823
@@ -49,5 +49,5 @@ ENV FLASK_ENV=production \
     PYTHONUNBUFFERED=1 \
     DATABASE_URL=sqlite:////app/data/platform_course.sqlite
 
-# Usar Gunicorn em produção
-CMD ["gunicorn", "--bind", "0.0.0.0:9823", "--workers", "2", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "app:app"]
+# Usar entrypoint script que inicializa o banco e inicia o servidor
+CMD ["./entrypoint.sh"]
