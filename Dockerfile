@@ -38,6 +38,9 @@ COPY --from=frontend-builder /frontend/dist ./frontend/dist
 # Criar diretórios necessários
 RUN mkdir -p uploads data
 
+# Declarar volumes persistentes (dados não serão perdidos ao recriar container)
+VOLUME ["/app/data", "/app/uploads"]
+
 # Expor porta
 EXPOSE 9823
 

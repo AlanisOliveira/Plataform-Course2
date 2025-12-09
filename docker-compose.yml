@@ -31,6 +31,22 @@ services:
       retries: 3
       start_period: 40s
 
+  watchtower:
+    image: containrrr/watchtower
+    container_name: watchtower-plataforma
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+      - WATCHTOWER_POLL_INTERVAL=3600
+      - WATCHTOWER_INCLUDE_STOPPED=true
+      - WATCHTOWER_REVIVE_STOPPED=false
+    command: plataforma-cursos
+    networks:
+      - plataforma-network
+
 networks:
   plataforma-network:
     driver: bridge
