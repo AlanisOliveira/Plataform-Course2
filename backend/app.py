@@ -313,13 +313,8 @@ def run_migrations():
         print("Todas as migrações já foram aplicadas. Banco de dados atualizado!")
 
 with app.app_context():
-    try:
-        db.create_all()
-    except Exception as e:
-        # Tabelas já existem, continuar com as migrações
-        print(f"Aviso ao criar tabelas (pode ser ignorado se já existem): {e}")
-        db.session.rollback()
-
+    # IMPORTANTE: NÃO usar db.create_all() aqui pois pode causar problemas
+    # As tabelas e migrações são gerenciadas pelo init_db.py no entrypoint
     run_migrations()
 
 if __name__ == "__main__":

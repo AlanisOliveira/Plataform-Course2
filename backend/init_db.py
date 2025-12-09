@@ -63,8 +63,17 @@ def init_database():
 
         if os.path.exists(db_path) and os.path.getsize(db_path) > 0:
             print("✓ Banco de dados existente encontrado")
+            # Verificar integridade do banco
+            try:
+                result = db.session.execute(db.text("SELECT COUNT(*) FROM course"))
+                count = result.scalar()
+                print(f"✓ Banco contém {count} curso(s) cadastrado(s)")
+            except Exception as e:
+                print(f"⚠ Erro ao verificar banco: {e}")
         else:
             print("ℹ Criando novo banco de dados...")
+            # IMPORTANTE: create_all() só cria tabelas que NÃO existem
+            # Não sobrescreve nem apaga dados existentes
             db.create_all()
             print("✓ Banco de dados criado com sucesso")
 
