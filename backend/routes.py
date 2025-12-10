@@ -2,7 +2,9 @@
 from flask import request, jsonify, send_file, abort, send_from_directory, render_template, make_response
 from werkzeug.utils import secure_filename
 import os
+import shutil
 from datetime import datetime
+from pathlib import Path
 from sqlalchemy import event, func, or_
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import joinedload
@@ -739,6 +741,216 @@ def delete_book_bookmark(book_id, bookmark_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+
+# ==================== ROTAS PARA BACKUP E RESTORE ====================
+
+@app.route('/api/backup/create', methods=['POST'])
+def create_manual_backup():
+    """Cria um backup manual do banco de dados"""
+    try:
+        db_path = '/app/data/platform_course.sqlite'
+
+        if not os.path.exists(db_path):
+            return jsonify({'error': 'Banco de dados não encontrado'}), 404
+
+        if os.path.getsize(db_path) == 0:
+            return jsonify({'error': 'Banco de dados está vazio'}), 400
+
+        # Criar backup com timestamp
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        backup_filename = f'platform_course_{timestamp}.sqlite'
+        backup_path = f'/app/backups/{backup_filename}'
+
+        # Garantir que o diretório existe
+        os.makedirs('/app/backups', exist_ok=True)
+
+        # Copiar o banco
+        shutil.copy2(db_path, backup_path)
+
+        # Obter tamanho do backup
+        backup_size = os.path.getsize(backup_path)
+
+        return jsonify({
+            'message': 'Backup criado com sucesso',
+            'filename': backup_filename,
+            'size': backup_size,
+            'created_at': datetime.now().isoformat()
+        }), 201
+
+    except Exception as e:
+        return jsonify({'error': f'Erro ao criar backup: {str(e)}'}), 500
+
+@app.route('/api/backup/list', methods=['GET'])
+def list_backups():
+    """Lista todos os backups disponíveis"""
+    try:
+        backup_dir = Path('/app/backups')
+
+        if not backup_dir.exists():
+            return jsonify([])
+
+        backups = []
+
+        for backup_file in sorted(backup_dir.glob('platform_course_*.sqlite'),
+                                  key=lambda x: x.stat().st_mtime,
+                                  reverse=True):
+            stat = backup_file.stat()
+            backups.append({
+                'filename': backup_file.name,
+                'size': stat.st_size,
+                'created_at': datetime.fromtimestamp(stat.st_mtime).isoformat()
+            })
+
+        return jsonify(backups)
+
+    except Exception as e:
+        return jsonify({'error': f'Erro ao listar backups: {str(e)}'}), 500
+
+@app.route('/api/backup/download/<filename>', methods=['GET'])
+def download_backup(filename):
+    """Baixa um backup específico"""
+    try:
+        # Validar filename para evitar path traversal
+        if '..' in filename or '/' in filename or '\\' in filename:
+            return jsonify({'error': 'Nome de arquivo inválido'}), 400
+
+        backup_path = f'/app/backups/{filename}'
+
+        if not os.path.exists(backup_path):
+            return jsonify({'error': 'Backup não encontrado'}), 404
+
+        return send_file(
+            backup_path,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/x-sqlite3'
+        )
+
+    except Exception as e:
+        return jsonify({'error': f'Erro ao baixar backup: {str(e)}'}), 500
+
+@app.route('/api/backup/download-current', methods=['GET'])
+def download_current_database():
+    """Baixa o banco de dados atual"""
+    try:
+        db_path = '/app/data/platform_course.sqlite'
+
+        if not os.path.exists(db_path):
+            return jsonify({'error': 'Banco de dados não encontrado'}), 404
+
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'platform_course_current_{timestamp}.sqlite'
+
+        return send_file(
+            db_path,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/x-sqlite3'
+        )
+
+    except Exception as e:
+        return jsonify({'error': f'Erro ao baixar banco atual: {str(e)}'}), 500
+
+@app.route('/api/backup/restore', methods=['POST'])
+def restore_backup():
+    """Restaura um backup (sobrescreve o banco atual)"""
+    try:
+        data = request.json
+        filename = data.get('filename')
+
+        if not filename:
+            return jsonify({'error': 'Nome do arquivo não fornecido'}), 400
+
+        # Validar filename
+        if '..' in filename or '/' in filename or '\\' in filename:
+            return jsonify({'error': 'Nome de arquivo inválido'}), 400
+
+        backup_path = f'/app/backups/{filename}'
+        db_path = '/app/data/platform_course.sqlite'
+
+        if not os.path.exists(backup_path):
+            return jsonify({'error': 'Backup não encontrado'}), 404
+
+        # Criar backup do banco atual antes de restaurar
+        if os.path.exists(db_path):
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            safety_backup = f'/app/backups/before_restore_{timestamp}.sqlite'
+            shutil.copy2(db_path, safety_backup)
+
+        # Restaurar o backup
+        shutil.copy2(backup_path, db_path)
+
+        return jsonify({
+            'message': 'Backup restaurado com sucesso. Recarregue a página.',
+            'restored_from': filename
+        })
+
+    except Exception as e:
+        return jsonify({'error': f'Erro ao restaurar backup: {str(e)}'}), 500
+
+@app.route('/api/backup/upload', methods=['POST'])
+def upload_and_restore_backup():
+    """Faz upload de um arquivo .sqlite e restaura"""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'Nenhum arquivo enviado'}), 400
+
+        file = request.files['file']
+
+        if file.filename == '':
+            return jsonify({'error': 'Arquivo vazio'}), 400
+
+        if not file.filename.endswith('.sqlite'):
+            return jsonify({'error': 'Arquivo deve ser .sqlite'}), 400
+
+        db_path = '/app/data/platform_course.sqlite'
+
+        # Criar backup de segurança do banco atual
+        if os.path.exists(db_path):
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            safety_backup = f'/app/backups/before_upload_{timestamp}.sqlite'
+            os.makedirs('/app/backups', exist_ok=True)
+            shutil.copy2(db_path, safety_backup)
+
+        # Salvar o arquivo enviado temporariamente
+        temp_path = '/tmp/uploaded_backup.sqlite'
+        file.save(temp_path)
+
+        # Validar que é um arquivo SQLite válido (básico)
+        if os.path.getsize(temp_path) == 0:
+            os.remove(temp_path)
+            return jsonify({'error': 'Arquivo está vazio'}), 400
+
+        # Restaurar o backup enviado
+        shutil.move(temp_path, db_path)
+
+        return jsonify({
+            'message': 'Backup importado e restaurado com sucesso. Recarregue a página.'
+        })
+
+    except Exception as e:
+        return jsonify({'error': f'Erro ao importar backup: {str(e)}'}), 500
+
+@app.route('/api/backup/delete/<filename>', methods=['DELETE'])
+def delete_backup(filename):
+    """Deleta um backup específico"""
+    try:
+        # Validar filename
+        if '..' in filename or '/' in filename or '\\' in filename:
+            return jsonify({'error': 'Nome de arquivo inválido'}), 400
+
+        backup_path = f'/app/backups/{filename}'
+
+        if not os.path.exists(backup_path):
+            return jsonify({'error': 'Backup não encontrado'}), 404
+
+        os.remove(backup_path)
+
+        return jsonify({'message': 'Backup deletado com sucesso'})
+
+    except Exception as e:
+        return jsonify({'error': f'Erro ao deletar backup: {str(e)}'}), 500
 
 
 # Rota catch-all para React Router - DEVE SER A ÚLTIMA ROTA

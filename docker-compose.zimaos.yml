@@ -9,7 +9,9 @@ services:
       # Volumes persistentes - NUNCA serão perdidos
       - plataforma-cursos-data:/app/data
       - plataforma-cursos-uploads:/app/uploads
-      - plataforma-cursos-backups:/app/backups
+
+      # Backups salvos diretamente no ZimaOS (acessível via SMB/NFS)
+      - /ZimaOS-HD/AppData/plataforma-cursos/backups:/app/backups
 
       # Volume de cursos - ajuste o caminho conforme seu ZimaOS
       - /media/Novo volume-2/Cursos:/Cursos:ro
@@ -33,6 +35,4 @@ volumes:
   plataforma-cursos-uploads:
     name: plataforma-cursos-uploads
     driver: local
-  plataforma-cursos-backups:
-    name: plataforma-cursos-backups
-    driver: local
+# Backups agora são salvos diretamente no host em /ZimaOS-HD/AppData/plataforma-cursos/backups
