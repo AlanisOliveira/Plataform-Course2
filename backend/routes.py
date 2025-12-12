@@ -855,6 +855,8 @@ def download_current_database():
 @app.route('/api/backup/restore', methods=['POST'])
 def restore_backup():
     """Restaura um backup (sobrescreve o banco atual)"""
+    import sqlite3
+
     try:
         data = request.json
         filename = data.get('filename')
@@ -872,26 +874,63 @@ def restore_backup():
         if not os.path.exists(backup_path):
             return jsonify({'error': 'Backup não encontrado'}), 404
 
+        # Validar que o backup é um arquivo SQLite válido
+        try:
+            conn = sqlite3.connect(backup_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+            tables = cursor.fetchall()
+            conn.close()
+
+            if len(tables) == 0:
+                return jsonify({'error': 'Backup inválido ou vazio'}), 400
+
+            print(f"Backup válido com {len(tables)} tabelas")
+        except sqlite3.Error as e:
+            return jsonify({'error': f'Backup não é um SQLite válido: {str(e)}'}), 400
+
         # Criar backup do banco atual antes de restaurar
         if os.path.exists(db_path):
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             safety_backup = f'/app/backups/before_restore_{timestamp}.sqlite'
             shutil.copy2(db_path, safety_backup)
+            print(f"Backup de segurança criado: {safety_backup}")
+
+        # IMPORTANTE: Fechar todas as conexões do pool do SQLAlchemy
+        try:
+            print("Fechando conexões do banco de dados...")
+            db.session.remove()
+            db.engine.dispose()
+            print("Conexões fechadas")
+        except Exception as e:
+            print(f"Aviso ao fechar conexões: {e}")
+
+        # Aguardar um momento para garantir que as conexões foram fechadas
+        import time
+        time.sleep(0.5)
 
         # Restaurar o backup
-        shutil.copy2(backup_path, db_path)
+        try:
+            shutil.copy2(backup_path, db_path)
+            print(f"Backup restaurado de {filename}")
+        except Exception as e:
+            print(f"Erro ao restaurar: {e}")
+            raise
 
         return jsonify({
-            'message': 'Backup restaurado com sucesso. Recarregue a página.',
+            'message': 'Backup restaurado com sucesso. Recarregue a página para aplicar as mudanças.',
             'restored_from': filename
         })
 
     except Exception as e:
+        print(f"Erro ao restaurar backup: {str(e)}")
         return jsonify({'error': f'Erro ao restaurar backup: {str(e)}'}), 500
 
 @app.route('/api/backup/upload', methods=['POST'])
 def upload_and_restore_backup():
     """Faz upload de um arquivo .sqlite e restaura"""
+    import sqlite3
+
     try:
         if 'file' not in request.files:
             return jsonify({'error': 'Nenhum arquivo enviado'}), 400
@@ -912,24 +951,63 @@ def upload_and_restore_backup():
             safety_backup = f'/app/backups/before_upload_{timestamp}.sqlite'
             os.makedirs('/app/backups', exist_ok=True)
             shutil.copy2(db_path, safety_backup)
+            print(f"Backup de segurança criado: {safety_backup}")
 
         # Salvar o arquivo enviado temporariamente
         temp_path = '/tmp/uploaded_backup.sqlite'
         file.save(temp_path)
+        print(f"Arquivo temporário salvo: {temp_path}")
 
-        # Validar que é um arquivo SQLite válido (básico)
+        # Validar que é um arquivo SQLite válido
         if os.path.getsize(temp_path) == 0:
             os.remove(temp_path)
             return jsonify({'error': 'Arquivo está vazio'}), 400
 
-        # Restaurar o backup enviado
-        shutil.move(temp_path, db_path)
+        # Validar que é um arquivo SQLite válido
+        try:
+            conn = sqlite3.connect(temp_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+            tables = cursor.fetchall()
+            conn.close()
+
+            if len(tables) == 0:
+                os.remove(temp_path)
+                return jsonify({'error': 'Arquivo SQLite inválido ou vazio'}), 400
+
+            print(f"Arquivo SQLite válido com {len(tables)} tabelas")
+        except sqlite3.Error as e:
+            os.remove(temp_path)
+            return jsonify({'error': f'Arquivo não é um SQLite válido: {str(e)}'}), 400
+
+        # IMPORTANTE: Fechar todas as conexões do pool do SQLAlchemy
+        try:
+            print("Fechando conexões do banco de dados...")
+            db.session.remove()
+            db.engine.dispose()
+            print("Conexões fechadas")
+        except Exception as e:
+            print(f"Aviso ao fechar conexões: {e}")
+
+        # Aguardar um momento para garantir que as conexões foram fechadas
+        import time
+        time.sleep(0.5)
+
+        # Restaurar o backup enviado (copiar ao invés de mover para evitar problemas)
+        try:
+            shutil.copy2(temp_path, db_path)
+            os.remove(temp_path)
+            print(f"Backup restaurado com sucesso em {db_path}")
+        except Exception as e:
+            print(f"Erro ao copiar arquivo: {e}")
+            raise
 
         return jsonify({
-            'message': 'Backup importado e restaurado com sucesso. Recarregue a página.'
+            'message': 'Backup importado e restaurado com sucesso. Recarregue a página para aplicar as mudanças.'
         })
 
     except Exception as e:
+        print(f"Erro ao importar backup: {str(e)}")
         return jsonify({'error': f'Erro ao importar backup: {str(e)}'}), 500
 
 @app.route('/api/backup/delete/<filename>', methods=['DELETE'])
