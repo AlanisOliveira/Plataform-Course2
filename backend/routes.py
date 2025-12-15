@@ -290,14 +290,46 @@ def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 
+@app.route('/api/courses/<int:course_id>/rescan', methods=['POST'])
+def rescan_course_lessons(course_id):
+    """Re-escaneia o diretório do curso e atualiza as lições"""
+    try:
+        course = Course.query.get_or_404(course_id)
+
+        # Verificar se o path do curso existe
+        if not os.path.exists(course.path):
+            return jsonify({'error': f'Path do curso não existe: {course.path}'}), 404
+
+        if not os.path.isdir(course.path):
+            return jsonify({'error': f'Path não é um diretório válido: {course.path}'}), 400
+
+        # Re-escanear as lições
+        try:
+            list_and_register_lessons(course.path, course_id)
+
+            # Contar quantas lições foram encontradas
+            total_lessons = Lesson.query.filter_by(course_id=course_id).count()
+
+            return jsonify({
+                'message': f'Lições atualizadas com sucesso! {total_lessons} lição(ões) encontrada(s).',
+                'total_lessons': total_lessons
+            }), 200
+
+        except Exception as e:
+            return jsonify({'error': f'Erro ao escanear lições: {str(e)}'}), 500
+
+    except Exception as e:
+        return jsonify({'error': f'Erro ao atualizar curso: {str(e)}'}), 500
+
+
 @app.route('/api/courses/<int:course_id>', methods=['DELETE'])
 def delete_course(course_id):
     course = Course.query.get_or_404(course_id)
     print(course)
     print(course_id)
-    
+
     Lesson.query.filter_by(course_id=course_id).delete()
-    
+
     if course.fileCover:
         try:
             os.remove(os.path.join(app.config['UPLOAD_FOLDER'], course.fileCover))
