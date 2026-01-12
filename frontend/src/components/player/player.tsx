@@ -15,6 +15,7 @@ import {
 import { VideoLayout } from "./components/layouts/video-layout";
 import { completeLesson } from "@/services/videoPlayer";
 import useApiUrl from "@/hooks/useApiUrl";
+import { getPlaybackSpeed, setPlaybackSpeed } from "@/utils/playbackSpeed";
 
 interface PlayerProps {
   src: string;
@@ -84,6 +85,17 @@ export function Player({
     }
   }, [isEnding, isEndingTriggered, lessonId]);
 
+  // Subscribe to playback rate changes and save them
+  useEffect(() => {
+    if (player.current) {
+      return player.current.subscribe(({ playbackRate }) => {
+        if (playbackRate > 0) {
+          setPlaybackSpeed(playbackRate);
+        }
+      });
+    }
+  }, []);
+
   function onProviderChange(
     provider: MediaProviderAdapter | null
     // nativeEvent: MediaProviderChangeEvent,
@@ -96,7 +108,11 @@ export function Player({
 
   // We can listen for the `can-play` event to be notified when the player is ready.
   function onCanPlay() {
-    // ...
+    // Restore the saved playback speed
+    if (player.current) {
+      const savedSpeed = getPlaybackSpeed();
+      player.current.playbackRate = savedSpeed;
+    }
   }
 
   return (
