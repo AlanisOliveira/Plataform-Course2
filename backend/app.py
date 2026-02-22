@@ -413,11 +413,9 @@ def run_migrations():
     if not migrations_applied:
         print("Todas as migrações já foram aplicadas. Banco de dados atualizado!")
 
-with app.app_context():
-    # IMPORTANTE: NÃO usar db.create_all() aqui pois pode causar problemas
-    # As tabelas e migrações são gerenciadas pelo init_db.py no entrypoint
-    run_migrations()
-
 if __name__ == "__main__":
+    with app.app_context():
+        db.create_all()
+        run_migrations()
     port = int(os.environ.get('PORT', 9823))
     app.run(debug=True, port=port, host="0.0.0.0")

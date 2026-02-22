@@ -56,14 +56,17 @@ def cleanup_old_backups():
 
 def init_database():
     """Inicializa o banco de dados se necessário"""
-    from app import app, db
+    from app import app, db, run_migrations
 
     with app.app_context():
         db_path = '/app/data/platform_course.sqlite'
 
+        # create_all() só cria tabelas que NÃO existem
+        # Não sobrescreve nem apaga dados existentes
+        db.create_all()
+
         if os.path.exists(db_path) and os.path.getsize(db_path) > 0:
             print("✓ Banco de dados existente encontrado")
-            # Verificar integridade do banco
             try:
                 result = db.session.execute(db.text("SELECT COUNT(*) FROM course"))
                 count = result.scalar()
@@ -71,11 +74,10 @@ def init_database():
             except Exception as e:
                 print(f"⚠ Erro ao verificar banco: {e}")
         else:
-            print("ℹ Criando novo banco de dados...")
-            # IMPORTANTE: create_all() só cria tabelas que NÃO existem
-            # Não sobrescreve nem apaga dados existentes
-            db.create_all()
             print("✓ Banco de dados criado com sucesso")
+
+        # Rodar migrações DEPOIS de garantir que as tabelas existem
+        run_migrations()
 
 if __name__ == '__main__':
     print("=" * 50)
