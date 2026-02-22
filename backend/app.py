@@ -331,26 +331,11 @@ def run_migrations():
 
     # ==================== MIGRAÇÃO DE PERFIS ====================
 
-    # Criar tabela Profile
+    # Garantir que perfil Admin existe
     try:
-        result = db.session.execute(db.text("SELECT name FROM sqlite_master WHERE type='table' AND name='profile'"))
-        if not result.fetchone():
-            print("Criando tabela 'profile'...")
-            db.session.execute(db.text("""
-                CREATE TABLE profile (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name VARCHAR(150) NOT NULL UNIQUE,
-                    password_hash VARCHAR(255) NOT NULL,
-                    is_admin INTEGER DEFAULT 0,
-                    avatar_color VARCHAR(20) DEFAULT '#3B82F6',
-                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-                )
-            """))
-            db.session.commit()
-            print("Tabela 'profile' criada com sucesso!")
-            migrations_applied = True
-
-            # Criar perfil Admin padrão
+        admin = db.session.execute(db.text("SELECT id FROM profile WHERE is_admin = 1 LIMIT 1")).fetchone()
+        if not admin:
+            print("Criando perfil Admin padrão...")
             from werkzeug.security import generate_password_hash
             admin_hash = generate_password_hash('admin')
             db.session.execute(db.text(
@@ -358,8 +343,9 @@ def run_migrations():
             ), {'name': 'Admin', 'hash': admin_hash})
             db.session.commit()
             print("Perfil Admin criado com sucesso! (senha: admin)")
+            migrations_applied = True
     except Exception as e:
-        print(f"Erro ao criar tabela 'profile': {e}")
+        print(f"Erro ao criar perfil Admin: {e}")
         db.session.rollback()
 
     # Adicionar profile_id à tabela course
