@@ -1,4 +1,5 @@
 import { Book } from "@/models/models";
+import { apiFetch } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -30,7 +31,7 @@ export default function BooksList({
 
   const loadBooks = async () => {
     try {
-      const response = await fetch(`${apiUrl}/api/books`);
+      const response = await apiFetch(`${apiUrl}/api/books`);
       if (!response.ok) throw new Error("Falha ao buscar livros");
 
       const books = await response.json();

@@ -60,26 +60,30 @@ def list_and_register_lessons_in_directory(directory, course_id, hierarchy_prefi
 
     db.session.commit()
 
-def scan_data_directory_and_register_courses():
+def scan_data_directory_and_register_courses(profile_id=None):
     entries = list(os.scandir('/data'))
 
     for entry in entries:
         if entry.is_dir():
+            if course_already_exists(entry.path, profile_id):
+                continue
+
             course = Course(
                 name=entry.name,
                 path=entry.path,
                 isCoverUrl=0,
                 fileCover=None,
-                urlCover=None
+                urlCover=None,
+                profile_id=profile_id
             )
-
-            if course_already_exists(course):
-                return
 
             db.session.add(course)
             db.session.commit()
 
             list_and_register_lessons_in_directory(course.path, course.id)
 
-def course_already_exists(course: Course):
-    return bool(len(Course.query.filter(Course.path == course.path).all()))
+def course_already_exists(path, profile_id=None):
+    query = Course.query.filter(Course.path == path)
+    if profile_id is not None:
+        query = query.filter(Course.profile_id == profile_id)
+    return bool(query.first())

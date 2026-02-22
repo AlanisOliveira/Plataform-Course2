@@ -1,4 +1,5 @@
 import { Course } from "@/models/models";
+import { apiFetch } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -29,7 +30,7 @@ export default function CoursesList({
   const loadCourses = async () => {
     try {
       // Usar o novo endpoint com informações de progresso
-      const response = await fetch(`${apiUrl}/api/courses/with-progress`);
+      const response = await apiFetch(`${apiUrl}/api/courses/with-progress`);
       if (!response.ok) throw new Error("Falha ao buscar cursos");
 
       const courses = await response.json();

@@ -19,6 +19,12 @@ class Config:
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or DEFAULT_DB_URI
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     UPLOAD_FOLDER = 'uploads'
-    SECRET_KEY = 'your_secret_key_here'
+    SECRET_KEY = os.environ.get('SECRET_KEY') or 'your_secret_key_here'
+
+    # Session configs
+    SESSION_TYPE = 'filesystem'
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    PERMANENT_SESSION_LIFETIME = 86400 * 30  # 30 dias
 
     print(f"Configuração do banco de dados: {SQLALCHEMY_DATABASE_URI}")

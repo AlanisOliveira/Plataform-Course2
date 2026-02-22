@@ -1,4 +1,5 @@
 import { Course } from "@/models/models";
+import { apiFetch } from "@/lib/api";
 import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import {
@@ -61,7 +62,7 @@ export default function EditCourse({ course, onUpdate }: Props) {
     }
 
     try {
-      const response = await fetch(`${apiUrl}/api/courses/${course.id}`, {
+      const response = await apiFetch(`${apiUrl}/api/courses/${course.id}`, {
         method: "PUT",
         body: formData,
       });

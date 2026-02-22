@@ -18,8 +18,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import useApiUrl from "@/hooks/useApiUrl";
+import useAuth from "@/hooks/useAuth";
+import { apiFetch } from "@/lib/api";
 import { toast } from "sonner";
-import { Download, Upload, Trash2, Database, RefreshCw } from "lucide-react";
+import { Download, Upload, Trash2, Database, RefreshCw, FileJson } from "lucide-react";
 
 interface Backup {
   filename: string;
@@ -29,15 +31,19 @@ interface Backup {
 
 export default function BackupManager() {
   const { apiUrl } = useApiUrl();
+  const { profile } = useAuth();
   const [backups, setBackups] = useState<Backup[]>([]);
   const [loading, setLoading] = useState(false);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedBackup, setSelectedBackup] = useState<string | null>(null);
 
+  const isAdmin = profile?.is_admin;
+
   const loadBackups = async () => {
+    if (!isAdmin) return;
     try {
-      const response = await fetch(`${apiUrl}/api/backup/list`);
+      const response = await apiFetch(`${apiUrl}/api/backup/list`);
       if (response.ok) {
         const data = await response.json();
         setBackups(data);
@@ -56,7 +62,7 @@ export default function BackupManager() {
   const createBackup = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${apiUrl}/api/backup/create`, {
+      const response = await apiFetch(`${apiUrl}/api/backup/create`, {
         method: "POST",
       });
 
@@ -87,7 +93,7 @@ export default function BackupManager() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${apiUrl}/api/backup/restore`, {
+      const response = await apiFetch(`${apiUrl}/api/backup/restore`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -115,7 +121,7 @@ export default function BackupManager() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${apiUrl}/api/backup/delete/${selectedBackup}`, {
+      const response = await apiFetch(`${apiUrl}/api/backup/delete/${selectedBackup}`, {
         method: "DELETE",
       });
 
@@ -140,7 +146,7 @@ export default function BackupManager() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch(`${apiUrl}/api/backup/upload`, {
+      const response = await apiFetch(`${apiUrl}/api/backup/upload`, {
         method: "POST",
         body: formData,
       });
@@ -154,6 +160,60 @@ export default function BackupManager() {
       }
     } catch (error) {
       toast.error("Erro ao conectar com o servidor");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Export/Import de dados do perfil (JSON)
+  const exportProfileData = async () => {
+    setLoading(true);
+    try {
+      const response = await apiFetch(`${apiUrl}/api/profile/export`);
+      if (response.ok) {
+        const data = await response.json();
+        const blob = new Blob([JSON.stringify(data, null, 2)], {
+          type: "application/json",
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `perfil_${profile?.name || "export"}_${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success("Dados exportados com sucesso!");
+      } else {
+        toast.error("Erro ao exportar dados");
+      }
+    } catch {
+      toast.error("Erro ao conectar com o servidor");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const importProfileData = async (file: File) => {
+    setLoading(true);
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+
+      const response = await apiFetch(`${apiUrl}/api/profile/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        toast.success(result.message);
+        setTimeout(() => window.location.reload(), 1500);
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Erro ao importar dados");
+      }
+    } catch {
+      toast.error("Erro ao processar arquivo JSON");
     } finally {
       setLoading(false);
     }
@@ -179,110 +239,155 @@ export default function BackupManager() {
 
   return (
     <div className="space-y-6">
+      {/* Export/Import por Perfil - disponível para todos */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Database className="w-5 h-5" />
-            Gerenciar Backups
+            <FileJson className="w-5 h-5" />
+            Meus Dados
           </CardTitle>
           <CardDescription>
-            Crie, baixe e restaure backups do banco de dados
+            Exporte e importe seus dados (cursos, livros, progresso, notas) em formato JSON
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={createBackup} disabled={loading}>
-              <Database className="w-4 h-4 mr-2" />
-              Criar Backup Agora
-            </Button>
-            <Button onClick={downloadCurrentDatabase} variant="outline">
+            <Button onClick={exportProfileData} disabled={loading}>
               <Download className="w-4 h-4 mr-2" />
-              Baixar Banco Atual
+              Exportar Meus Dados
             </Button>
             <Button
               variant="outline"
-              onClick={() => document.getElementById("file-upload")?.click()}
+              onClick={() => document.getElementById("json-upload")?.click()}
+              disabled={loading}
             >
               <Upload className="w-4 h-4 mr-2" />
-              Importar Backup
+              Importar Dados
             </Button>
             <input
-              id="file-upload"
+              id="json-upload"
               type="file"
-              accept=".sqlite"
+              accept=".json"
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) {
-                  uploadBackup(file);
+                  importProfileData(file);
+                  e.target.value = "";
                 }
               }}
             />
-            <Button onClick={loadBackups} variant="ghost" size="icon">
-              <RefreshCw className="w-4 h-4" />
-            </Button>
-          </div>
-
-          <div className="border rounded-lg">
-            <div className="max-h-96 overflow-y-auto">
-              {backups.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">
-                  Nenhum backup encontrado
-                </div>
-              ) : (
-                <table className="w-full">
-                  <thead className="bg-muted/50 sticky top-0">
-                    <tr>
-                      <th className="text-left p-3">Nome do Arquivo</th>
-                      <th className="text-left p-3">Tamanho</th>
-                      <th className="text-left p-3">Data de Criação</th>
-                      <th className="text-right p-3">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {backups.map((backup) => (
-                      <tr key={backup.filename} className="border-t hover:bg-muted/50">
-                        <td className="p-3 font-mono text-sm">{backup.filename}</td>
-                        <td className="p-3">{formatFileSize(backup.size)}</td>
-                        <td className="p-3">{formatDate(backup.created_at)}</td>
-                        <td className="p-3 text-right space-x-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => downloadBackup(backup.filename)}
-                          >
-                            <Download className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedBackup(backup.filename);
-                              setRestoreDialogOpen(true);
-                            }}
-                          >
-                            <RefreshCw className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setSelectedBackup(backup.filename);
-                              setDeleteDialogOpen(true);
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Backup do DB - apenas admin */}
+      {isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Database className="w-5 h-5" />
+              Gerenciar Backups do Banco de Dados
+            </CardTitle>
+            <CardDescription>
+              Crie, baixe e restaure backups completos do banco de dados (apenas admin)
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={createBackup} disabled={loading}>
+                <Database className="w-4 h-4 mr-2" />
+                Criar Backup Agora
+              </Button>
+              <Button onClick={downloadCurrentDatabase} variant="outline">
+                <Download className="w-4 h-4 mr-2" />
+                Baixar Banco Atual
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => document.getElementById("file-upload")?.click()}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Importar Backup
+              </Button>
+              <input
+                id="file-upload"
+                type="file"
+                accept=".sqlite"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    uploadBackup(file);
+                  }
+                }}
+              />
+              <Button onClick={loadBackups} variant="ghost" size="icon">
+                <RefreshCw className="w-4 h-4" />
+              </Button>
+            </div>
+
+            <div className="border rounded-lg">
+              <div className="max-h-96 overflow-y-auto">
+                {backups.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">
+                    Nenhum backup encontrado
+                  </div>
+                ) : (
+                  <table className="w-full">
+                    <thead className="bg-muted/50 sticky top-0">
+                      <tr>
+                        <th className="text-left p-3">Nome do Arquivo</th>
+                        <th className="text-left p-3">Tamanho</th>
+                        <th className="text-left p-3">Data de Criação</th>
+                        <th className="text-right p-3">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {backups.map((backup) => (
+                        <tr key={backup.filename} className="border-t hover:bg-muted/50">
+                          <td className="p-3 font-mono text-sm">{backup.filename}</td>
+                          <td className="p-3">{formatFileSize(backup.size)}</td>
+                          <td className="p-3">{formatDate(backup.created_at)}</td>
+                          <td className="p-3 text-right space-x-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => downloadBackup(backup.filename)}
+                            >
+                              <Download className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedBackup(backup.filename);
+                                setRestoreDialogOpen(true);
+                              }}
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setSelectedBackup(backup.filename);
+                                setDeleteDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <AlertDialog open={restoreDialogOpen} onOpenChange={setRestoreDialogOpen}>
         <AlertDialogContent>

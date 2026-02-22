@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -29,7 +30,7 @@ export default function DeleteBook({ book, onUpdate }: Props) {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${apiUrl}/api/books/${book.id}`, {
+      const response = await apiFetch(`${apiUrl}/api/books/${book.id}`, {
         method: "DELETE",
       });
 

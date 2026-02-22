@@ -1,4 +1,5 @@
 import { Course } from "@/models/models";
+import { apiFetch } from "@/lib/api";
 import noImage from "../../../public/sem-foto.png";
 import { Button } from "../ui/button";
 import DeleteCourse from "./delete-course";
@@ -37,7 +38,7 @@ export default function CourseItem({
   const handleRescanLessons = async () => {
     setIsRefreshing(true);
     try {
-      const response = await fetch(`${apiUrl}/api/courses/${course.id}/rescan`, {
+      const response = await apiFetch(`${apiUrl}/api/courses/${course.id}/rescan`, {
         method: "POST",
       });
 

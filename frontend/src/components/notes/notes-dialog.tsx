@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { apiFetch } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -38,7 +39,7 @@ export function NotesDialog({ type, id, title }: NotesDialogProps) {
           ? `${apiUrl}/api/courses/${id}/notes`
           : `${apiUrl}/api/lessons/${id}/notes`;
 
-      const response = await fetch(endpoint);
+      const response = await apiFetch(endpoint);
       if (response.ok) {
         const data = await response.json();
         setNotes(data.notes || "");
@@ -57,7 +58,7 @@ export function NotesDialog({ type, id, title }: NotesDialogProps) {
           ? `${apiUrl}/api/courses/${id}/notes`
           : `${apiUrl}/api/lessons/${id}/notes`;
 
-      const response = await fetch(endpoint, {
+      const response = await apiFetch(endpoint, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

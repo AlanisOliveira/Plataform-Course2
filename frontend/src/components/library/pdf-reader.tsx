@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { apiFetch } from "@/lib/api";
 import { Book, BookNote, BookHighlight, BookBookmark } from "@/models/models";
 import { Button } from "@/components/ui/button";
 import {
@@ -134,9 +135,9 @@ export default function PDFReader({ book, apiUrl, onProgressUpdate }: Props) {
   const loadAnnotations = useCallback(async () => {
     try {
       const [notesRes, highlightsRes, bookmarksRes] = await Promise.all([
-        fetch(`${apiUrl}/api/books/${book.id}/book-notes`),
-        fetch(`${apiUrl}/api/books/${book.id}/highlights`),
-        fetch(`${apiUrl}/api/books/${book.id}/bookmarks`),
+        apiFetch(`${apiUrl}/api/books/${book.id}/book-notes`),
+        apiFetch(`${apiUrl}/api/books/${book.id}/highlights`),
+        apiFetch(`${apiUrl}/api/books/${book.id}/bookmarks`),
       ]);
 
       if (notesRes.ok) setNotes(await notesRes.json());
@@ -169,7 +170,7 @@ export default function PDFReader({ book, apiUrl, onProgressUpdate }: Props) {
     const pageNumber = props.selectionRegion.pageIndex + 1;
 
     try {
-      await fetch(`${apiUrl}/api/books/${book.id}/highlights`, {
+      await apiFetch(`${apiUrl}/api/books/${book.id}/highlights`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -194,7 +195,7 @@ export default function PDFReader({ book, apiUrl, onProgressUpdate }: Props) {
   const handleSaveNote = async (noteText: string) => {
     try {
       if (currentNote) {
-        await fetch(
+        await apiFetch(
           `${apiUrl}/api/books/${book.id}/book-notes/${currentNote.id}`,
           {
             method: "PUT",
@@ -204,7 +205,7 @@ export default function PDFReader({ book, apiUrl, onProgressUpdate }: Props) {
         );
         toast.success("Nota atualizada!");
       } else {
-        await fetch(`${apiUrl}/api/books/${book.id}/book-notes`, {
+        await apiFetch(`${apiUrl}/api/books/${book.id}/book-notes`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -222,7 +223,7 @@ export default function PDFReader({ book, apiUrl, onProgressUpdate }: Props) {
 
   const handleDeleteNote = async (noteId: number) => {
     try {
-      await fetch(`${apiUrl}/api/books/${book.id}/book-notes/${noteId}`, {
+      await apiFetch(`${apiUrl}/api/books/${book.id}/book-notes/${noteId}`, {
         method: "DELETE",
       });
       toast.success("Nota deletada!");
@@ -239,7 +240,7 @@ export default function PDFReader({ book, apiUrl, onProgressUpdate }: Props) {
 
   const handleDeleteHighlight = async (highlightId: number) => {
     try {
-      await fetch(`${apiUrl}/api/books/${book.id}/highlights/${highlightId}`, {
+      await apiFetch(`${apiUrl}/api/books/${book.id}/highlights/${highlightId}`, {
         method: "DELETE",
       });
       toast.success("Destaque removido!");
@@ -251,7 +252,7 @@ export default function PDFReader({ book, apiUrl, onProgressUpdate }: Props) {
 
   const handleDeleteBookmark = async (bookmarkId: number) => {
     try {
-      await fetch(`${apiUrl}/api/books/${book.id}/bookmarks/${bookmarkId}`, {
+      await apiFetch(`${apiUrl}/api/books/${book.id}/bookmarks/${bookmarkId}`, {
         method: "DELETE",
       });
       toast.success("Marcador removido!");
@@ -270,7 +271,7 @@ export default function PDFReader({ book, apiUrl, onProgressUpdate }: Props) {
 
   const handleAddBookmark = async () => {
     try {
-      await fetch(`${apiUrl}/api/books/${book.id}/bookmarks`, {
+      await apiFetch(`${apiUrl}/api/books/${book.id}/bookmarks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

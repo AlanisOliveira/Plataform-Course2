@@ -1,9 +1,13 @@
 import Header from "@/components/header";
 import CoursePage from "@/pages/course";
 import SettingsPage from "@/pages/settings";
+import LoginPage from "@/pages/login";
+import AdminPage from "@/pages/admin";
 import { ThemeProvider } from "@/components/theme-provider";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "sonner";
+import AuthInitializer from "@/components/auth/auth-initializer";
+import ProtectedRoute from "@/components/auth/protected-route";
 
 // Recipes
 import RecipesDashboard from "@/pages/recipes-dashboard";
@@ -27,35 +31,52 @@ export default function Router({ }: Props) {
           expand={false}
           visibleToasts={1}
         />
-        <Routes>
-          {/* Book reader without header */}
-          <Route path="/livros/:bookId" element={<BookReaderPage />} />
+        <AuthInitializer>
+          <Routes>
+            {/* Login - rota pública */}
+            <Route path="/login" element={<LoginPage />} />
 
-          <Route
-            path="*"
-            element={
-              <>
-                <Header />
-                <main className="p-6">
-                  <Routes>
-                    {/* Recipes */}
-                    <Route path="/" element={<RecipesDashboard />} />
-                    <Route path="/receitas" element={<RecipesLibrary />} />
-                    <Route path="/receitas/gestao" element={<RecipesManage />} />
-                    <Route path="/receitas/:courseId" element={<CoursePage />} />
+            {/* Book reader without header (protegido) */}
+            <Route
+              path="/livros/:bookId"
+              element={
+                <ProtectedRoute>
+                  <BookReaderPage />
+                </ProtectedRoute>
+              }
+            />
 
-                    {/* Books */}
-                    <Route path="/livros" element={<BooksDashboard />} />
+            <Route
+              path="*"
+              element={
+                <ProtectedRoute>
+                  <>
+                    <Header />
+                    <main className="p-6">
+                      <Routes>
+                        {/* Recipes */}
+                        <Route path="/" element={<RecipesDashboard />} />
+                        <Route path="/receitas" element={<RecipesLibrary />} />
+                        <Route path="/receitas/gestao" element={<RecipesManage />} />
+                        <Route path="/receitas/:courseId" element={<CoursePage />} />
 
-                    {/* Settings */}
-                    <Route path="/configuracoes" element={<SettingsPage />} />
-                  </Routes>
-                </main>
-                <Footer />
-              </>
-            }
-          />
-        </Routes>
+                        {/* Books */}
+                        <Route path="/livros" element={<BooksDashboard />} />
+
+                        {/* Admin */}
+                        <Route path="/admin" element={<AdminPage />} />
+
+                        {/* Settings */}
+                        <Route path="/configuracoes" element={<SettingsPage />} />
+                      </Routes>
+                    </main>
+                    <Footer />
+                  </>
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </AuthInitializer>
       </ThemeProvider>
     </BrowserRouter>
   );

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -51,7 +52,7 @@ export default function AddBook({ onCreate }: Props) {
         formData.append("imageFile", imageFile);
       }
 
-      const response = await fetch(`${apiUrl}/api/books`, {
+      const response = await apiFetch(`${apiUrl}/api/books`, {
         method: "POST",
         body: formData,
       });

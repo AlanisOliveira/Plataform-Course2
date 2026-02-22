@@ -6,3 +6,12 @@ dist/
 build/
 *.log
 .DS_Store
+__pycache__/
+*.pyc
+backend/venv/
+backend/instance/
+*.sqlite
+.playwright-mcp/
+frontend/dist/
+test.py
+code.png

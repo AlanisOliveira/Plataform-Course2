@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { apiFetch } from "@/lib/api";
 import {
   Dialog,
   DialogContent,
@@ -64,7 +65,7 @@ export default function AddCourse({ onCreate }: Props) {
     }
 
     try {
-      const response = await fetch(`${apiUrl}/api/courses`, {
+      const response = await apiFetch(`${apiUrl}/api/courses`, {
         method: "POST",
         body: formData,
       });

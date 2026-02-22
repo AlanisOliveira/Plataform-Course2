@@ -2,13 +2,29 @@ from flask import Flask, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from config import Config
+from werkzeug.security import generate_password_hash, check_password_hash
 import os
 
 app = Flask(__name__, static_folder="frontend/dist", static_url_path="")
 app.config.from_object(Config)
 
 db = SQLAlchemy(app)
-CORS(app)
+CORS(app, supports_credentials=True, origins=os.environ.get('CORS_ORIGINS', '*').split(','))
+
+
+class Profile(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(150), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    is_admin = db.Column(db.Integer, default=0)
+    avatar_color = db.Column(db.String(20), default='#3B82F6')
+    created_at = db.Column(db.DateTime, nullable=False, default=db.func.current_timestamp())
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
 
 
 class Course(db.Model):
@@ -21,6 +37,8 @@ class Course(db.Model):
     notes = db.Column(db.Text, nullable=True)
     categories = db.Column(db.String(255), nullable=True)
     course_type = db.Column(db.String(100), nullable=True)
+    profile_id = db.Column(db.Integer, db.ForeignKey("profile.id"), nullable=True)
+    profile = db.relationship("Profile", backref=db.backref("courses", lazy=True))
 
 
 class Book(db.Model):
@@ -40,6 +58,8 @@ class Book(db.Model):
     notes = db.Column(db.Text, nullable=True)
     is_read = db.Column(db.Integer, default=0)
     last_read_at = db.Column(db.DateTime, nullable=True)
+    profile_id = db.Column(db.Integer, db.ForeignKey("profile.id"), nullable=True)
+    profile = db.relationship("Profile", backref=db.backref("books", lazy=True))
 
 
 class Lesson(db.Model):
@@ -309,6 +329,87 @@ def run_migrations():
         print(f"Erro ao criar tabela 'book_bookmark': {e}")
         db.session.rollback()
 
+    # ==================== MIGRAÇÃO DE PERFIS ====================
+
+    # Criar tabela Profile
+    try:
+        result = db.session.execute(db.text("SELECT name FROM sqlite_master WHERE type='table' AND name='profile'"))
+        if not result.fetchone():
+            print("Criando tabela 'profile'...")
+            db.session.execute(db.text("""
+                CREATE TABLE profile (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name VARCHAR(150) NOT NULL UNIQUE,
+                    password_hash VARCHAR(255) NOT NULL,
+                    is_admin INTEGER DEFAULT 0,
+                    avatar_color VARCHAR(20) DEFAULT '#3B82F6',
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
+            db.session.commit()
+            print("Tabela 'profile' criada com sucesso!")
+            migrations_applied = True
+
+            # Criar perfil Admin padrão
+            from werkzeug.security import generate_password_hash
+            admin_hash = generate_password_hash('admin')
+            db.session.execute(db.text(
+                "INSERT INTO profile (name, password_hash, is_admin, avatar_color) VALUES (:name, :hash, 1, '#3B82F6')"
+            ), {'name': 'Admin', 'hash': admin_hash})
+            db.session.commit()
+            print("Perfil Admin criado com sucesso! (senha: admin)")
+    except Exception as e:
+        print(f"Erro ao criar tabela 'profile': {e}")
+        db.session.rollback()
+
+    # Adicionar profile_id à tabela course
+    try:
+        result = db.session.execute(db.text("PRAGMA table_info(course)"))
+        columns = [row[1] for row in result]
+
+        if 'profile_id' not in columns:
+            print("Adicionando coluna 'profile_id' à tabela 'course'...")
+            db.session.execute(db.text("ALTER TABLE course ADD COLUMN profile_id INTEGER REFERENCES profile(id)"))
+            db.session.commit()
+
+            # Atribuir cursos existentes ao Admin (profile_id = 1)
+            admin = db.session.execute(db.text("SELECT id FROM profile WHERE is_admin = 1 LIMIT 1")).fetchone()
+            if admin:
+                db.session.execute(db.text("UPDATE course SET profile_id = :pid WHERE profile_id IS NULL"), {'pid': admin[0]})
+                db.session.commit()
+                print(f"Cursos existentes atribuídos ao perfil Admin (id={admin[0]})")
+
+            print("Coluna 'profile_id' adicionada à tabela 'course' com sucesso!")
+            migrations_applied = True
+    except Exception as e:
+        if "duplicate column name" not in str(e).lower():
+            print(f"Erro ao adicionar coluna 'profile_id' em 'course': {e}")
+        db.session.rollback()
+
+    # Adicionar profile_id à tabela book
+    try:
+        result = db.session.execute(db.text("PRAGMA table_info(book)"))
+        columns = [row[1] for row in result]
+
+        if 'profile_id' not in columns:
+            print("Adicionando coluna 'profile_id' à tabela 'book'...")
+            db.session.execute(db.text("ALTER TABLE book ADD COLUMN profile_id INTEGER REFERENCES profile(id)"))
+            db.session.commit()
+
+            # Atribuir livros existentes ao Admin (profile_id = 1)
+            admin = db.session.execute(db.text("SELECT id FROM profile WHERE is_admin = 1 LIMIT 1")).fetchone()
+            if admin:
+                db.session.execute(db.text("UPDATE book SET profile_id = :pid WHERE profile_id IS NULL"), {'pid': admin[0]})
+                db.session.commit()
+                print(f"Livros existentes atribuídos ao perfil Admin (id={admin[0]})")
+
+            print("Coluna 'profile_id' adicionada à tabela 'book' com sucesso!")
+            migrations_applied = True
+    except Exception as e:
+        if "duplicate column name" not in str(e).lower():
+            print(f"Erro ao adicionar coluna 'profile_id' em 'book': {e}")
+        db.session.rollback()
+
     if not migrations_applied:
         print("Todas as migrações já foram aplicadas. Banco de dados atualizado!")
 
@@ -318,4 +419,5 @@ with app.app_context():
     run_migrations()
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5000, host="0.0.0.0")
+    port = int(os.environ.get('PORT', 9823))
+    app.run(debug=True, port=port, host="0.0.0.0")

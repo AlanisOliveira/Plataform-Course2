@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { apiFetch } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -52,7 +53,7 @@ export default function EditBook({ book, onUpdate }: Props) {
         formData.append("imageFile", imageFile);
       }
 
-      const response = await fetch(`${apiUrl}/api/books/${book.id}`, {
+      const response = await apiFetch(`${apiUrl}/api/books/${book.id}`, {
         method: "PUT",
         body: formData,
       });

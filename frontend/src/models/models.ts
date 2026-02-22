@@ -82,3 +82,11 @@ export type BookBookmark = {
   name?: string;
   created_at: string;
 };
+
+export type Profile = {
+  id: number;
+  name: string;
+  is_admin: number;
+  avatar_color: string;
+  created_at?: string;
+};
