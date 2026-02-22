@@ -339,7 +339,7 @@ def run_migrations():
             from werkzeug.security import generate_password_hash
             admin_hash = generate_password_hash('admin')
             db.session.execute(db.text(
-                "INSERT INTO profile (name, password_hash, is_admin, avatar_color) VALUES (:name, :hash, 1, '#3B82F6')"
+                "INSERT INTO profile (name, password_hash, is_admin, avatar_color, created_at) VALUES (:name, :hash, 1, '#3B82F6', CURRENT_TIMESTAMP)"
             ), {'name': 'Admin', 'hash': admin_hash})
             db.session.commit()
             print("Perfil Admin criado com sucesso! (senha: admin)")

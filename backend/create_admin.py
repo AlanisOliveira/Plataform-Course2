@@ -1,0 +1,15 @@
+from app import app, db
+from werkzeug.security import generate_password_hash
+
+with app.app_context():
+    db.create_all()
+    h = generate_password_hash("admin")
+    db.session.execute(
+        db.text(
+            "INSERT INTO profile (name, password_hash, is_admin, avatar_color, created_at) "
+            "VALUES ('Admin', :h, 1, '#3B82F6', CURRENT_TIMESTAMP)"
+        ),
+        {"h": h},
+    )
+    db.session.commit()
+    print("Admin criado!")
