@@ -46,8 +46,7 @@ EXPOSE 9823
 
 # Variáveis de ambiente padrão
 ENV FLASK_ENV=production \
-    PYTHONUNBUFFERED=1 \
-    DATABASE_URL=sqlite:////app/data/platform_course.sqlite
+    PYTHONUNBUFFERED=1
 
 # Usar entrypoint script que inicializa o banco e inicia o servidor
 CMD ["./entrypoint.sh"]

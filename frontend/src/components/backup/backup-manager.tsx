@@ -29,10 +29,17 @@ interface Backup {
   created_at: string;
 }
 
+interface BackupStatus {
+  database_engine: "sqlite" | "postgresql";
+  app_backup_supported: boolean;
+  message: string;
+}
+
 export default function BackupManager() {
   const { apiUrl } = useApiUrl();
   const { profile } = useAuth();
   const [backups, setBackups] = useState<Backup[]>([]);
+  const [backupStatus, setBackupStatus] = useState<BackupStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -43,6 +50,12 @@ export default function BackupManager() {
   const loadBackups = async () => {
     if (!isAdmin) return;
     try {
+      const statusResponse = await apiFetch(`${apiUrl}/api/backup/status`);
+      if (statusResponse.ok) {
+        const statusData = await statusResponse.json();
+        setBackupStatus(statusData);
+      }
+
       const response = await apiFetch(`${apiUrl}/api/backup/list`);
       if (response.ok) {
         const data = await response.json();
@@ -294,18 +307,28 @@ export default function BackupManager() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {backupStatus && (
+              <div className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+                Banco atual: <strong>{backupStatus.database_engine}</strong>. {backupStatus.message}
+              </div>
+            )}
             <div className="flex flex-wrap gap-2">
-              <Button onClick={createBackup} disabled={loading}>
+              <Button onClick={createBackup} disabled={loading || !backupStatus?.app_backup_supported}>
                 <Database className="w-4 h-4 mr-2" />
                 Criar Backup Agora
               </Button>
-              <Button onClick={downloadCurrentDatabase} variant="outline">
+              <Button
+                onClick={downloadCurrentDatabase}
+                variant="outline"
+                disabled={!backupStatus?.app_backup_supported}
+              >
                 <Download className="w-4 h-4 mr-2" />
                 Baixar Banco Atual
               </Button>
               <Button
                 variant="outline"
                 onClick={() => document.getElementById("file-upload")?.click()}
+                disabled={!backupStatus?.app_backup_supported}
               >
                 <Upload className="w-4 h-4 mr-2" />
                 Importar Backup
@@ -354,6 +377,7 @@ export default function BackupManager() {
                               size="sm"
                               variant="outline"
                               onClick={() => downloadBackup(backup.filename)}
+                              disabled={!backupStatus?.app_backup_supported}
                             >
                               <Download className="w-4 h-4" />
                             </Button>
@@ -364,6 +388,7 @@ export default function BackupManager() {
                                 setSelectedBackup(backup.filename);
                                 setRestoreDialogOpen(true);
                               }}
+                              disabled={!backupStatus?.app_backup_supported}
                             >
                               <RefreshCw className="w-4 h-4" />
                             </Button>
@@ -374,6 +399,7 @@ export default function BackupManager() {
                                 setSelectedBackup(backup.filename);
                                 setDeleteDialogOpen(true);
                               }}
+                              disabled={!backupStatus?.app_backup_supported}
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>

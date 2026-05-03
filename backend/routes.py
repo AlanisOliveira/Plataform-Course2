@@ -10,6 +10,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import joinedload
 
 from app import app, db, Lesson, Course, Book, BookNote, BookHighlight, BookBookmark, Profile
+from db_utils import get_sqlite_db_path, is_sqlite_database
 from utils import list_and_register_lessons, scan_data_directory_and_register_courses
 from video_utils import open_video
 from auth import login_required, admin_required, get_current_profile_id, get_course_for_profile, get_book_for_profile
@@ -1219,9 +1220,14 @@ def delete_book_bookmark(book_id, bookmark_id):
 def create_manual_backup():
     """Cria um backup manual do banco de dados"""
     try:
-        db_path = '/app/data/platform_course.sqlite'
+        if not is_sqlite_database(app):
+            return jsonify({
+                'error': 'Backups em arquivo pela aplicação só estão disponíveis para SQLite. No PostgreSQL, use pgAdmin ou pg_dump.'
+            }), 400
 
-        if not os.path.exists(db_path):
+        db_path = get_sqlite_db_path(app)
+
+        if not db_path or not os.path.exists(db_path):
             return jsonify({'error': 'Banco de dados não encontrado'}), 404
 
         if os.path.getsize(db_path) == 0:
@@ -1230,10 +1236,10 @@ def create_manual_backup():
         # Criar backup com timestamp
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         backup_filename = f'platform_course_{timestamp}.sqlite'
-        backup_path = f'/app/backups/{backup_filename}'
+        backup_path = os.path.join(app.config['BACKUP_DIR'], backup_filename)
 
         # Garantir que o diretório existe
-        os.makedirs('/app/backups', exist_ok=True)
+        os.makedirs(app.config['BACKUP_DIR'], exist_ok=True)
 
         # Copiar o banco
         shutil.copy2(db_path, backup_path)
@@ -1256,7 +1262,10 @@ def create_manual_backup():
 def list_backups():
     """Lista todos os backups disponíveis"""
     try:
-        backup_dir = Path('/app/backups')
+        if not is_sqlite_database(app):
+            return jsonify([])
+
+        backup_dir = Path(app.config['BACKUP_DIR'])
 
         if not backup_dir.exists():
             return jsonify([])
@@ -1283,11 +1292,16 @@ def list_backups():
 def download_backup(filename):
     """Baixa um backup específico"""
     try:
+        if not is_sqlite_database(app):
+            return jsonify({
+                'error': 'Download de backup em arquivo não disponível para PostgreSQL. Use pgAdmin ou pg_dump.'
+            }), 400
+
         # Validar filename para evitar path traversal
         if '..' in filename or '/' in filename or '\\' in filename:
             return jsonify({'error': 'Nome de arquivo inválido'}), 400
 
-        backup_path = f'/app/backups/{filename}'
+        backup_path = os.path.join(app.config['BACKUP_DIR'], filename)
 
         if not os.path.exists(backup_path):
             return jsonify({'error': 'Backup não encontrado'}), 404
@@ -1307,9 +1321,14 @@ def download_backup(filename):
 def download_current_database():
     """Baixa o banco de dados atual"""
     try:
-        db_path = '/app/data/platform_course.sqlite'
+        if not is_sqlite_database(app):
+            return jsonify({
+                'error': 'Download do banco atual não disponível para PostgreSQL. Use pgAdmin ou pg_dump.'
+            }), 400
 
-        if not os.path.exists(db_path):
+        db_path = get_sqlite_db_path(app)
+
+        if not db_path or not os.path.exists(db_path):
             return jsonify({'error': 'Banco de dados não encontrado'}), 404
 
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -1332,6 +1351,11 @@ def restore_backup():
     import sqlite3
 
     try:
+        if not is_sqlite_database(app):
+            return jsonify({
+                'error': 'Restauração pela aplicação só está disponível para SQLite. No PostgreSQL, restaure via pgAdmin ou pg_restore.'
+            }), 400
+
         data = request.json
         filename = data.get('filename')
 
@@ -1342,10 +1366,10 @@ def restore_backup():
         if '..' in filename or '/' in filename or '\\' in filename:
             return jsonify({'error': 'Nome de arquivo inválido'}), 400
 
-        backup_path = f'/app/backups/{filename}'
-        db_path = '/app/data/platform_course.sqlite'
+        backup_path = os.path.join(app.config['BACKUP_DIR'], filename)
+        db_path = get_sqlite_db_path(app)
 
-        if not os.path.exists(backup_path):
+        if not db_path or not os.path.exists(backup_path):
             return jsonify({'error': 'Backup não encontrado'}), 404
 
         # Validar que o backup é um arquivo SQLite válido
@@ -1366,7 +1390,7 @@ def restore_backup():
         # Criar backup do banco atual antes de restaurar
         if os.path.exists(db_path):
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            safety_backup = f'/app/backups/before_restore_{timestamp}.sqlite'
+            safety_backup = os.path.join(app.config['BACKUP_DIR'], f'before_restore_{timestamp}.sqlite')
             shutil.copy2(db_path, safety_backup)
             print(f"Backup de segurança criado: {safety_backup}")
 
@@ -1407,6 +1431,11 @@ def upload_and_restore_backup():
     import sqlite3
 
     try:
+        if not is_sqlite_database(app):
+            return jsonify({
+                'error': 'Importação de backup pela aplicação só está disponível para SQLite. No PostgreSQL, use pgAdmin.'
+            }), 400
+
         if 'file' not in request.files:
             return jsonify({'error': 'Nenhum arquivo enviado'}), 400
 
@@ -1418,13 +1447,13 @@ def upload_and_restore_backup():
         if not file.filename.endswith('.sqlite'):
             return jsonify({'error': 'Arquivo deve ser .sqlite'}), 400
 
-        db_path = '/app/data/platform_course.sqlite'
+        db_path = get_sqlite_db_path(app)
 
         # Criar backup de segurança do banco atual
         if os.path.exists(db_path):
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            safety_backup = f'/app/backups/before_upload_{timestamp}.sqlite'
-            os.makedirs('/app/backups', exist_ok=True)
+            safety_backup = os.path.join(app.config['BACKUP_DIR'], f'before_upload_{timestamp}.sqlite')
+            os.makedirs(app.config['BACKUP_DIR'], exist_ok=True)
             shutil.copy2(db_path, safety_backup)
             print(f"Backup de segurança criado: {safety_backup}")
 
@@ -1490,11 +1519,16 @@ def upload_and_restore_backup():
 def delete_backup(filename):
     """Deleta um backup específico"""
     try:
+        if not is_sqlite_database(app):
+            return jsonify({
+                'error': 'Backups em arquivo não estão habilitados para PostgreSQL.'
+            }), 400
+
         # Validar filename
         if '..' in filename or '/' in filename or '\\' in filename:
             return jsonify({'error': 'Nome de arquivo inválido'}), 400
 
-        backup_path = f'/app/backups/{filename}'
+        backup_path = os.path.join(app.config['BACKUP_DIR'], filename)
 
         if not os.path.exists(backup_path):
             return jsonify({'error': 'Backup não encontrado'}), 404
@@ -1505,6 +1539,20 @@ def delete_backup(filename):
 
     except Exception as e:
         return jsonify({'error': f'Erro ao deletar backup: {str(e)}'}), 500
+
+
+@app.route('/api/backup/status', methods=['GET'])
+@admin_required
+def backup_status():
+    return jsonify({
+        'database_engine': 'sqlite' if is_sqlite_database(app) else 'postgresql',
+        'app_backup_supported': is_sqlite_database(app),
+        'message': (
+            'Backups em arquivo estão habilitados.'
+            if is_sqlite_database(app)
+            else 'Use pgAdmin ou pg_dump para backup e restore do PostgreSQL.'
+        )
+    })
 
 
 # Rota catch-all para React Router - DEVE SER A ÚLTIMA ROTA

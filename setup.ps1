@@ -21,6 +21,10 @@ Write-Host ""
 Write-Host "Configurando caminhos..." -ForegroundColor Cyan
 Write-Host ""
 
+function New-RandomSecret {
+    return [guid]::NewGuid().ToString("N") + [guid]::NewGuid().ToString("N")
+}
+
 # Solicitar caminho dos cursos
 $DEFAULT_PATH = "$env:USERPROFILE\Cursos"
 Write-Host "Caminho padrão sugerido: $DEFAULT_PATH" -ForegroundColor Yellow
@@ -57,6 +61,52 @@ if ([string]::IsNullOrWhiteSpace($PORT)) {
     $PORT = "9823"
 }
 
+# Configurar PostgreSQL
+$POSTGRES_DB = Read-Host "Nome do banco [platform_course]"
+if ([string]::IsNullOrWhiteSpace($POSTGRES_DB)) {
+    $POSTGRES_DB = "platform_course"
+}
+
+$POSTGRES_USER = Read-Host "Usuário do banco [platform_course]"
+if ([string]::IsNullOrWhiteSpace($POSTGRES_USER)) {
+    $POSTGRES_USER = "platform_course"
+}
+
+$defaultDbPassword = New-RandomSecret
+$POSTGRES_PASSWORD = Read-Host "Senha do banco [$defaultDbPassword]"
+if ([string]::IsNullOrWhiteSpace($POSTGRES_PASSWORD)) {
+    $POSTGRES_PASSWORD = $defaultDbPassword
+}
+
+$defaultSecret = New-RandomSecret
+$SECRET_KEY = Read-Host "SECRET_KEY da aplicação [$defaultSecret]"
+if ([string]::IsNullOrWhiteSpace($SECRET_KEY)) {
+    $SECRET_KEY = $defaultSecret
+}
+
+$ADMIN_DEFAULT_PASSWORD = Read-Host "Senha inicial do admin da aplicação [admin123!]"
+if ([string]::IsNullOrWhiteSpace($ADMIN_DEFAULT_PASSWORD)) {
+    $ADMIN_DEFAULT_PASSWORD = "admin123!"
+}
+
+$PGADMIN_DEFAULT_EMAIL = Read-Host "Email do pgAdmin [admin@plataforma.local]"
+if ([string]::IsNullOrWhiteSpace($PGADMIN_DEFAULT_EMAIL)) {
+    $PGADMIN_DEFAULT_EMAIL = "admin@plataforma.local"
+}
+
+$defaultPgAdminPassword = New-RandomSecret
+$PGADMIN_DEFAULT_PASSWORD = Read-Host "Senha do pgAdmin [$defaultPgAdminPassword]"
+if ([string]::IsNullOrWhiteSpace($PGADMIN_DEFAULT_PASSWORD)) {
+    $PGADMIN_DEFAULT_PASSWORD = $defaultPgAdminPassword
+}
+
+$PGADMIN_PORT = Read-Host "Porta do pgAdmin [8080]"
+if ([string]::IsNullOrWhiteSpace($PGADMIN_PORT)) {
+    $PGADMIN_PORT = "8080"
+}
+
+$DATABASE_URL = "postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+
 # Criar arquivo .env
 $envContent = @"
 # Configuração da Plataforma de Cursos
@@ -71,8 +121,24 @@ COURSES_PATH=$COURSES_PATH_DOCKER
 # Caminho INTERNO no container (não altere)
 COURSES_INTERNAL_PATH=/cursos
 
-# Banco de dados
-DATABASE_URL=sqlite:////app/data/platform_course.sqlite
+# Segurança
+SECRET_KEY=$SECRET_KEY
+ADMIN_DEFAULT_NAME=Admin
+ADMIN_DEFAULT_PASSWORD=$ADMIN_DEFAULT_PASSWORD
+SESSION_COOKIE_SECURE=false
+
+# PostgreSQL
+POSTGRES_DB=$POSTGRES_DB
+POSTGRES_USER=$POSTGRES_USER
+POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+DATABASE_URL=$DATABASE_URL
+
+# pgAdmin
+PGADMIN_PORT=$PGADMIN_PORT
+PGADMIN_DEFAULT_EMAIL=$PGADMIN_DEFAULT_EMAIL
+PGADMIN_DEFAULT_PASSWORD=$PGADMIN_DEFAULT_PASSWORD
+
+# Ambiente
 FLASK_ENV=production
 "@
 
@@ -85,6 +151,9 @@ Write-Host "Configurações:" -ForegroundColor Cyan
 Write-Host "  - Porta: $PORT"
 Write-Host "  - Caminho dos cursos (Windows): $COURSES_PATH"
 Write-Host "  - Caminho dos cursos (Docker): $COURSES_PATH_DOCKER"
+Write-Host "  - Banco PostgreSQL: $POSTGRES_DB"
+Write-Host "  - Usuário PostgreSQL: $POSTGRES_USER"
+Write-Host "  - pgAdmin: http://localhost:$PGADMIN_PORT"
 Write-Host ""
 Write-Host "IMPORTANTE:" -ForegroundColor Yellow
 Write-Host "  Ao cadastrar cursos na plataforma, use o caminho:"

@@ -8,18 +8,27 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
+from config import Config
+from db_utils import ensure_directory, get_sqlite_db_path, is_sqlite_database
+
 def ensure_directories():
     """Garante que todos os diretórios necessários existem"""
-    dirs = ['/app/data', '/app/uploads', '/app/backups']
+    dirs = [Config.DATA_DIR, Config.UPLOAD_FOLDER, Config.BACKUP_DIR]
     for d in dirs:
-        os.makedirs(d, exist_ok=True)
+        ensure_directory(d)
         print(f"✓ Diretório {d} OK")
 
 def backup_database():
     """Cria backup do banco de dados se ele existir"""
-    db_path = '/app/data/platform_course.sqlite'
+    from app import app
 
-    if not os.path.exists(db_path):
+    if not is_sqlite_database(app):
+        print("ℹ Backup automático em arquivo é desativado para bancos não-SQLite")
+        return
+
+    db_path = get_sqlite_db_path(app)
+
+    if not db_path or not os.path.exists(db_path):
         print("ℹ Banco de dados não existe ainda (primeira inicialização)")
         return
 
@@ -30,7 +39,7 @@ def backup_database():
 
     # Criar backup com timestamp
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    backup_path = f'/app/backups/platform_course_{timestamp}.sqlite'
+    backup_path = os.path.join(Config.BACKUP_DIR, f'platform_course_{timestamp}.sqlite')
 
     try:
         shutil.copy2(db_path, backup_path)
@@ -43,7 +52,7 @@ def backup_database():
 
 def cleanup_old_backups():
     """Remove backups antigos, mantendo apenas os 10 mais recentes"""
-    backup_dir = Path('/app/backups')
+    backup_dir = Path(Config.BACKUP_DIR)
     backups = sorted(backup_dir.glob('platform_course_*.sqlite'), key=lambda x: x.stat().st_mtime)
 
     # Remover backups excedentes
@@ -59,13 +68,13 @@ def init_database():
     from app import app, db, run_migrations
 
     with app.app_context():
-        db_path = '/app/data/platform_course.sqlite'
-
         # create_all() só cria tabelas que NÃO existem
         # Não sobrescreve nem apaga dados existentes
         db.create_all()
 
-        if os.path.exists(db_path) and os.path.getsize(db_path) > 0:
+        db_path = get_sqlite_db_path(app)
+
+        if db_path and os.path.exists(db_path) and os.path.getsize(db_path) > 0:
             print("✓ Banco de dados existente encontrado")
             try:
                 result = db.session.execute(db.text("SELECT COUNT(*) FROM course"))

@@ -2,6 +2,7 @@ from flask import Flask, send_from_directory
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 from config import Config
+from db_utils import column_exists, create_admin_if_missing
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 
@@ -123,10 +124,7 @@ def run_migrations():
     migrations_applied = False
 
     try:
-        result = db.session.execute(db.text("PRAGMA table_info(course)"))
-        columns = [row[1] for row in result]
-
-        if 'notes' not in columns:
+        if not column_exists(db, 'course', 'notes'):
             print("Adicionando coluna 'notes' à tabela 'course'...")
             db.session.execute(db.text("ALTER TABLE course ADD COLUMN notes TEXT"))
             db.session.commit()
@@ -137,10 +135,7 @@ def run_migrations():
         db.session.rollback()
 
     try:
-        result = db.session.execute(db.text("PRAGMA table_info(course)"))
-        columns = [row[1] for row in result]
-
-        if 'categories' not in columns:
+        if not column_exists(db, 'course', 'categories'):
             print("Adicionando coluna 'categories' à tabela 'course'...")
             db.session.execute(db.text("ALTER TABLE course ADD COLUMN categories VARCHAR(255)"))
             db.session.commit()
@@ -152,10 +147,7 @@ def run_migrations():
         db.session.rollback()
 
     try:
-        result = db.session.execute(db.text("PRAGMA table_info(lesson)"))
-        lesson_columns = [row[1] for row in result]
-
-        if 'notes' not in lesson_columns:
+        if not column_exists(db, 'lesson', 'notes'):
             print("Adicionando coluna 'notes' à tabela 'lesson'...")
             db.session.execute(db.text("ALTER TABLE lesson ADD COLUMN notes TEXT"))
             db.session.commit()
@@ -166,10 +158,7 @@ def run_migrations():
         db.session.rollback()
 
     try:
-        result = db.session.execute(db.text("PRAGMA table_info(course)"))
-        columns = [row[1] for row in result]
-
-        if 'course_type' not in columns:
+        if not column_exists(db, 'course', 'course_type'):
             print("Adicionando coluna 'course_type' à tabela 'course'...")
             db.session.execute(db.text("ALTER TABLE course ADD COLUMN course_type VARCHAR(100)"))
             db.session.commit()
@@ -181,10 +170,7 @@ def run_migrations():
         db.session.rollback()
 
     try:
-        result = db.session.execute(db.text("PRAGMA table_info(lesson)"))
-        lesson_columns = [row[1] for row in result]
-
-        if 'subtitle_url' not in lesson_columns:
+        if not column_exists(db, 'lesson', 'subtitle_url'):
             print("Adicionando coluna 'subtitle_url' à tabela 'lesson'...")
             db.session.execute(db.text("ALTER TABLE lesson ADD COLUMN subtitle_url VARCHAR(255)"))
             db.session.commit()
@@ -196,12 +182,9 @@ def run_migrations():
         db.session.rollback()
 
     try:
-        result = db.session.execute(db.text("PRAGMA table_info(lesson)"))
-        lesson_columns = [row[1] for row in result]
-
-        if 'updated_at' not in lesson_columns:
+        if not column_exists(db, 'lesson', 'updated_at'):
             print("Adicionando coluna 'updated_at' à tabela 'lesson'...")
-            db.session.execute(db.text("ALTER TABLE lesson ADD COLUMN updated_at DATETIME"))
+            db.session.execute(db.text("ALTER TABLE lesson ADD COLUMN updated_at TIMESTAMP"))
             db.session.commit()
             print("Coluna 'updated_at' adicionada à tabela 'lesson' com sucesso!")
             migrations_applied = True
@@ -210,43 +193,8 @@ def run_migrations():
             print(f"Erro ao adicionar coluna 'updated_at' em 'lesson': {e}")
         db.session.rollback()
 
-    # Verificar e criar tabela Book se não existir
     try:
-        result = db.session.execute(db.text("SELECT name FROM sqlite_master WHERE type='table' AND name='book'"))
-        if not result.fetchone():
-            print("Criando tabela 'book'...")
-            db.session.execute(db.text("""
-                CREATE TABLE book (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    title VARCHAR(150) NOT NULL,
-                    author VARCHAR(150),
-                    file_path VARCHAR(255) NOT NULL,
-                    file_type VARCHAR(10) NOT NULL,
-                    isCoverUrl INTEGER DEFAULT 0,
-                    fileCover VARCHAR(255),
-                    urlCover VARCHAR(255),
-                    categories VARCHAR(255),
-                    book_type VARCHAR(100),
-                    current_page INTEGER DEFAULT 0,
-                    total_pages INTEGER,
-                    notes TEXT,
-                    is_read INTEGER DEFAULT 0,
-                    last_read_at DATETIME
-                )
-            """))
-            db.session.commit()
-            print("Tabela 'book' criada com sucesso!")
-            migrations_applied = True
-    except Exception as e:
-        print(f"Erro ao criar tabela 'book': {e}")
-        db.session.rollback()
-
-    # Adicionar campo epub_cfi_position à tabela Book
-    try:
-        result = db.session.execute(db.text("PRAGMA table_info(book)"))
-        book_columns = [row[1] for row in result]
-
-        if 'epub_cfi_position' not in book_columns:
+        if not column_exists(db, 'book', 'epub_cfi_position'):
             print("Adicionando coluna 'epub_cfi_position' à tabela 'book'...")
             db.session.execute(db.text("ALTER TABLE book ADD COLUMN epub_cfi_position VARCHAR(500)"))
             db.session.commit()
@@ -257,92 +205,12 @@ def run_migrations():
             print(f"Erro ao adicionar coluna 'epub_cfi_position' em 'book': {e}")
         db.session.rollback()
 
-    # Criar tabela BookNote
-    try:
-        result = db.session.execute(db.text("SELECT name FROM sqlite_master WHERE type='table' AND name='book_note'"))
-        if not result.fetchone():
-            print("Criando tabela 'book_note'...")
-            db.session.execute(db.text("""
-                CREATE TABLE book_note (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    book_id INTEGER NOT NULL,
-                    page_number INTEGER,
-                    cfi_position VARCHAR(500),
-                    note_text TEXT NOT NULL,
-                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (book_id) REFERENCES book(id)
-                )
-            """))
-            db.session.commit()
-            print("Tabela 'book_note' criada com sucesso!")
-            migrations_applied = True
-    except Exception as e:
-        print(f"Erro ao criar tabela 'book_note': {e}")
-        db.session.rollback()
-
-    # Criar tabela BookHighlight
-    try:
-        result = db.session.execute(db.text("SELECT name FROM sqlite_master WHERE type='table' AND name='book_highlight'"))
-        if not result.fetchone():
-            print("Criando tabela 'book_highlight'...")
-            db.session.execute(db.text("""
-                CREATE TABLE book_highlight (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    book_id INTEGER NOT NULL,
-                    page_number INTEGER,
-                    cfi_position VARCHAR(500),
-                    cfi_range VARCHAR(1000),
-                    highlighted_text TEXT NOT NULL,
-                    color VARCHAR(20) NOT NULL DEFAULT 'yellow',
-                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (book_id) REFERENCES book(id)
-                )
-            """))
-            db.session.commit()
-            print("Tabela 'book_highlight' criada com sucesso!")
-            migrations_applied = True
-    except Exception as e:
-        print(f"Erro ao criar tabela 'book_highlight': {e}")
-        db.session.rollback()
-
-    # Criar tabela BookBookmark
-    try:
-        result = db.session.execute(db.text("SELECT name FROM sqlite_master WHERE type='table' AND name='book_bookmark'"))
-        if not result.fetchone():
-            print("Criando tabela 'book_bookmark'...")
-            db.session.execute(db.text("""
-                CREATE TABLE book_bookmark (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    book_id INTEGER NOT NULL,
-                    page_number INTEGER,
-                    cfi_position VARCHAR(500),
-                    name VARCHAR(150),
-                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (book_id) REFERENCES book(id)
-                )
-            """))
-            db.session.commit()
-            print("Tabela 'book_bookmark' criada com sucesso!")
-            migrations_applied = True
-    except Exception as e:
-        print(f"Erro ao criar tabela 'book_bookmark': {e}")
-        db.session.rollback()
-
     # ==================== MIGRAÇÃO DE PERFIS ====================
 
     # Garantir que perfil Admin existe
     try:
-        admin = db.session.execute(db.text("SELECT id FROM profile WHERE is_admin = 1 LIMIT 1")).fetchone()
-        if not admin:
-            print("Criando perfil Admin padrão...")
-            from werkzeug.security import generate_password_hash
-            admin_hash = generate_password_hash('admin')
-            db.session.execute(db.text(
-                "INSERT INTO profile (name, password_hash, is_admin, avatar_color, created_at) VALUES (:name, :hash, 1, '#3B82F6', CURRENT_TIMESTAMP)"
-            ), {'name': 'Admin', 'hash': admin_hash})
-            db.session.commit()
-            print("Perfil Admin criado com sucesso! (senha: admin)")
+        if create_admin_if_missing(db):
+            print("Perfil Admin criado com sucesso!")
             migrations_applied = True
     except Exception as e:
         print(f"Erro ao criar perfil Admin: {e}")
@@ -350,10 +218,7 @@ def run_migrations():
 
     # Adicionar profile_id à tabela course
     try:
-        result = db.session.execute(db.text("PRAGMA table_info(course)"))
-        columns = [row[1] for row in result]
-
-        if 'profile_id' not in columns:
+        if not column_exists(db, 'course', 'profile_id'):
             print("Adicionando coluna 'profile_id' à tabela 'course'...")
             db.session.execute(db.text("ALTER TABLE course ADD COLUMN profile_id INTEGER REFERENCES profile(id)"))
             db.session.commit()
@@ -374,10 +239,7 @@ def run_migrations():
 
     # Adicionar profile_id à tabela book
     try:
-        result = db.session.execute(db.text("PRAGMA table_info(book)"))
-        columns = [row[1] for row in result]
-
-        if 'profile_id' not in columns:
+        if not column_exists(db, 'book', 'profile_id'):
             print("Adicionando coluna 'profile_id' à tabela 'book'...")
             db.session.execute(db.text("ALTER TABLE book ADD COLUMN profile_id INTEGER REFERENCES profile(id)"))
             db.session.commit()

@@ -1,30 +1,29 @@
 import os
+import secrets
 
 class Config:
-    # Usar path absoluto para o banco de dados para evitar perda de dados
-    # Quando em Docker, usa /app/data/platform_course.sqlite (definido por DATABASE_URL)
-    # Quando em desenvolvimento, cria diretório 'data' no backend
-
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-    DATA_DIR = os.path.join(BASE_DIR, 'data')
+    APP_DIR = os.environ.get('APP_DIR', '/app')
+    DATA_DIR = os.environ.get('DATA_DIR', os.path.join(APP_DIR, 'data'))
+    UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', os.path.join(APP_DIR, 'uploads'))
+    BACKUP_DIR = os.environ.get('BACKUP_DIR', os.path.join(APP_DIR, 'backups'))
+    COURSES_INTERNAL_PATH = os.environ.get('COURSES_INTERNAL_PATH', '/cursos')
 
-    # Garantir que o diretório de dados existe
     os.makedirs(DATA_DIR, exist_ok=True)
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    os.makedirs(BACKUP_DIR, exist_ok=True)
 
-    # Path absoluto do banco de dados (fallback para desenvolvimento)
     DB_FILE = os.path.join(DATA_DIR, 'platform_course.sqlite')
     DEFAULT_DB_URI = f'sqlite:///{DB_FILE}'
 
-    # Priorizar DATABASE_URL do ambiente (Docker), caso contrário usar path absoluto
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or DEFAULT_DB_URI
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    UPLOAD_FOLDER = 'uploads'
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'your_secret_key_here'
+    SECRET_KEY = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
 
-    # Session configs
     SESSION_TYPE = 'filesystem'
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
+    SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'false').lower() == 'true'
     PERMANENT_SESSION_LIFETIME = 86400 * 30  # 30 dias
 
     print(f"Configuração do banco de dados: {SQLALCHEMY_DATABASE_URI}")

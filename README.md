@@ -76,9 +76,21 @@ Variáveis principais:
 PORT=9823
 COURSES_PATH=/DATA/Cursos
 COURSES_INTERNAL_PATH=/cursos
-DATABASE_URL=sqlite:////app/data/platform_course.sqlite
+DATABASE_URL=postgresql+psycopg://platform_course:SENHA@postgres:5432/platform_course
+POSTGRES_DB=platform_course
+POSTGRES_USER=platform_course
+POSTGRES_PASSWORD=SENHA_FORTE
+PGADMIN_DEFAULT_EMAIL=admin@plataforma.local
+PGADMIN_DEFAULT_PASSWORD=SENHA_FORTE
+SECRET_KEY=UMA_CHAVE_FORTE
 FLASK_ENV=production
 ```
+
+## Banco de dados e administração
+- O backend continua obrigatório para autenticação, sessão, leitura de arquivos e regras de negócio.
+- O banco recomendado para CasaOS é PostgreSQL.
+- O `pgAdmin` é incluído no `docker-compose` apenas para administrar o PostgreSQL.
+- O frontend não deve acessar o banco diretamente.
 
 ## Formatos suportados
 - Vídeos: MP4, WebM, OGG  
@@ -119,6 +131,13 @@ Linux (Ubuntu, Debian, Fedora)
 macOS  
 ZimaOS / CasaOS  
 Docker Desktop / Portainer
+
+## CasaOS
+- Rode `./setup.sh` para gerar o `.env`.
+- Suba os serviços com `docker-compose up -d`.
+- A aplicação ficará em `http://IP-DO-SERVIDOR:9823`.
+- O `pgAdmin` ficará em `http://IP-DO-SERVIDOR:8080` por padrão.
+- No `pgAdmin`, o host do banco dentro da stack é `postgres`.
 
 ## Requisitos
 - Docker  
