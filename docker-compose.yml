@@ -1,13 +1,8 @@
 services:
   plataforma-cursos:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${APP_IMAGE:-ghcr.io/alanisoliveira/plataform-course2:latest}
     container_name: plataforma-cursos
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
     ports:
       - "${PORT:-9823}:9823"
     volumes:
@@ -34,70 +29,14 @@ services:
       retries: 3
       start_period: 40s
 
-  postgres:
-    image: postgres:16-alpine
-    container_name: plataforma-postgres
-    restart: unless-stopped
-    volumes:
-      - plataforma-cursos-db:/var/lib/postgresql/data
-    environment:
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 20s
-    networks:
-      - plataforma-network
-
-  pgadmin:
-    image: dpage/pgadmin4:8
-    container_name: plataforma-pgadmin
-    restart: unless-stopped
-    ports:
-      - "${PGADMIN_PORT:-8080}:80"
-    volumes:
-      - plataforma-cursos-pgadmin:/var/lib/pgadmin
-    environment:
-      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
-      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
-      - PGADMIN_CONFIG_SERVER_MODE=False
-    networks:
-      - plataforma-network
-
-  watchtower:
-    image: containrrr/watchtower
-    container_name: watchtower-plataforma
-    restart: unless-stopped
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-    environment:
-      - WATCHTOWER_CLEANUP=true
-      - WATCHTOWER_INCLUDE_RESTARTING=true
-      - WATCHTOWER_POLL_INTERVAL=3600
-      - WATCHTOWER_INCLUDE_STOPPED=true
-      - WATCHTOWER_REVIVE_STOPPED=false
-    command: plataforma-cursos
-    networks:
-      - plataforma-network
-
 # Volumes nomeados com prefixo fixo
 # NUNCA renomeie estes volumes!
 volumes:
-  plataforma-cursos-db:
-    name: plataforma-cursos-db
-    driver: local
   plataforma-cursos-uploads:
     name: plataforma-cursos-uploads
     driver: local
   plataforma-cursos-backups:
     name: plataforma-cursos-backups
-    driver: local
-  plataforma-cursos-pgadmin:
-    name: plataforma-cursos-pgadmin
     driver: local
 
 networks:

@@ -62,14 +62,24 @@ if ([string]::IsNullOrWhiteSpace($PORT)) {
 }
 
 # Configurar PostgreSQL
-$POSTGRES_DB = Read-Host "Nome do banco [platform_course]"
-if ([string]::IsNullOrWhiteSpace($POSTGRES_DB)) {
-    $POSTGRES_DB = "platform_course"
+$POSTGRES_HOST = Read-Host "Host/IP do PostgreSQL [192.168.100.28]"
+if ([string]::IsNullOrWhiteSpace($POSTGRES_HOST)) {
+    $POSTGRES_HOST = "192.168.100.28"
 }
 
-$POSTGRES_USER = Read-Host "Usuário do banco [platform_course]"
+$POSTGRES_PORT = Read-Host "Porta do PostgreSQL [5432]"
+if ([string]::IsNullOrWhiteSpace($POSTGRES_PORT)) {
+    $POSTGRES_PORT = "5432"
+}
+
+$POSTGRES_DB = Read-Host "Nome do banco [Plataform-Course]"
+if ([string]::IsNullOrWhiteSpace($POSTGRES_DB)) {
+    $POSTGRES_DB = "Plataform-Course"
+}
+
+$POSTGRES_USER = Read-Host "Usuário do banco [casaos]"
 if ([string]::IsNullOrWhiteSpace($POSTGRES_USER)) {
-    $POSTGRES_USER = "platform_course"
+    $POSTGRES_USER = "casaos"
 }
 
 $defaultDbPassword = New-RandomSecret
@@ -89,23 +99,12 @@ if ([string]::IsNullOrWhiteSpace($ADMIN_DEFAULT_PASSWORD)) {
     $ADMIN_DEFAULT_PASSWORD = "admin123!"
 }
 
-$PGADMIN_DEFAULT_EMAIL = Read-Host "Email do pgAdmin [admin@plataforma.local]"
-if ([string]::IsNullOrWhiteSpace($PGADMIN_DEFAULT_EMAIL)) {
-    $PGADMIN_DEFAULT_EMAIL = "admin@plataforma.local"
+$APP_IMAGE = Read-Host "Imagem Docker da aplicação [ghcr.io/alanisoliveira/plataform-course2:latest]"
+if ([string]::IsNullOrWhiteSpace($APP_IMAGE)) {
+    $APP_IMAGE = "ghcr.io/alanisoliveira/plataform-course2:latest"
 }
 
-$defaultPgAdminPassword = New-RandomSecret
-$PGADMIN_DEFAULT_PASSWORD = Read-Host "Senha do pgAdmin [$defaultPgAdminPassword]"
-if ([string]::IsNullOrWhiteSpace($PGADMIN_DEFAULT_PASSWORD)) {
-    $PGADMIN_DEFAULT_PASSWORD = $defaultPgAdminPassword
-}
-
-$PGADMIN_PORT = Read-Host "Porta do pgAdmin [8080]"
-if ([string]::IsNullOrWhiteSpace($PGADMIN_PORT)) {
-    $PGADMIN_PORT = "8080"
-}
-
-$DATABASE_URL = "postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+$DATABASE_URL = "postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
 
 # Criar arquivo .env
 $envContent = @"
@@ -114,6 +113,7 @@ $envContent = @"
 
 # Porta em que a aplicação vai rodar
 PORT=$PORT
+APP_IMAGE=$APP_IMAGE
 
 # Caminho para os cursos
 COURSES_PATH=$COURSES_PATH_DOCKER
@@ -128,15 +128,12 @@ ADMIN_DEFAULT_PASSWORD=$ADMIN_DEFAULT_PASSWORD
 SESSION_COOKIE_SECURE=false
 
 # PostgreSQL
+POSTGRES_HOST=$POSTGRES_HOST
+POSTGRES_PORT=$POSTGRES_PORT
 POSTGRES_DB=$POSTGRES_DB
 POSTGRES_USER=$POSTGRES_USER
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 DATABASE_URL=$DATABASE_URL
-
-# pgAdmin
-PGADMIN_PORT=$PGADMIN_PORT
-PGADMIN_DEFAULT_EMAIL=$PGADMIN_DEFAULT_EMAIL
-PGADMIN_DEFAULT_PASSWORD=$PGADMIN_DEFAULT_PASSWORD
 
 # Ambiente
 FLASK_ENV=production
@@ -151,9 +148,10 @@ Write-Host "Configurações:" -ForegroundColor Cyan
 Write-Host "  - Porta: $PORT"
 Write-Host "  - Caminho dos cursos (Windows): $COURSES_PATH"
 Write-Host "  - Caminho dos cursos (Docker): $COURSES_PATH_DOCKER"
+Write-Host "  - Imagem Docker: $APP_IMAGE"
+Write-Host "  - Host PostgreSQL: ${POSTGRES_HOST}:$POSTGRES_PORT"
 Write-Host "  - Banco PostgreSQL: $POSTGRES_DB"
 Write-Host "  - Usuário PostgreSQL: $POSTGRES_USER"
-Write-Host "  - pgAdmin: http://localhost:$PGADMIN_PORT"
 Write-Host ""
 Write-Host "IMPORTANTE:" -ForegroundColor Yellow
 Write-Host "  Ao cadastrar cursos na plataforma, use o caminho:"

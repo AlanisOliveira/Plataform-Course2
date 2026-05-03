@@ -81,12 +81,18 @@ PORT=${PORT:-9823}
 
 # PostgreSQL
 echo ""
-echo "Configurando PostgreSQL..."
-read -p "Nome do banco [platform_course]: " POSTGRES_DB
-POSTGRES_DB=${POSTGRES_DB:-platform_course}
+echo "Configurando PostgreSQL externo..."
+read -p "Host/IP do PostgreSQL [192.168.100.28]: " POSTGRES_HOST
+POSTGRES_HOST=${POSTGRES_HOST:-192.168.100.28}
 
-read -p "Usuário do banco [platform_course]: " POSTGRES_USER
-POSTGRES_USER=${POSTGRES_USER:-platform_course}
+read -p "Porta do PostgreSQL [5432]: " POSTGRES_PORT
+POSTGRES_PORT=${POSTGRES_PORT:-5432}
+
+read -p "Nome do banco [Plataform-Course]: " POSTGRES_DB
+POSTGRES_DB=${POSTGRES_DB:-Plataform-Course}
+
+read -p "Usuário do banco [casaos]: " POSTGRES_USER
+POSTGRES_USER=${POSTGRES_USER:-casaos}
 
 DEFAULT_DB_PASSWORD=$(generate_secret)
 read -p "Senha do banco [$DEFAULT_DB_PASSWORD]: " POSTGRES_PASSWORD
@@ -99,17 +105,10 @@ SECRET_KEY=${SECRET_KEY:-$DEFAULT_SECRET}
 read -p "Senha inicial do admin da aplicação [admin123!]: " ADMIN_DEFAULT_PASSWORD
 ADMIN_DEFAULT_PASSWORD=${ADMIN_DEFAULT_PASSWORD:-admin123!}
 
-read -p "Email do pgAdmin [admin@plataforma.local]: " PGADMIN_DEFAULT_EMAIL
-PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL:-admin@plataforma.local}
+read -p "Imagem Docker da aplicação [ghcr.io/alanisoliveira/plataform-course2:latest]: " APP_IMAGE
+APP_IMAGE=${APP_IMAGE:-ghcr.io/alanisoliveira/plataform-course2:latest}
 
-DEFAULT_PGADMIN_PASSWORD=$(generate_secret)
-read -p "Senha do pgAdmin [$DEFAULT_PGADMIN_PASSWORD]: " PGADMIN_DEFAULT_PASSWORD
-PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD:-$DEFAULT_PGADMIN_PASSWORD}
-
-read -p "Porta do pgAdmin [8080]: " PGADMIN_PORT
-PGADMIN_PORT=${PGADMIN_PORT:-8080}
-
-DATABASE_URL="postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
+DATABASE_URL="postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
 
 # Criar arquivo .env
 cat > .env << EOF
@@ -118,6 +117,7 @@ cat > .env << EOF
 
 # Porta em que a aplicação vai rodar
 PORT=$PORT
+APP_IMAGE=$APP_IMAGE
 
 # Caminho para os cursos
 COURSES_PATH=$COURSES_PATH
@@ -132,15 +132,12 @@ ADMIN_DEFAULT_PASSWORD=$ADMIN_DEFAULT_PASSWORD
 SESSION_COOKIE_SECURE=false
 
 # PostgreSQL
+POSTGRES_HOST=$POSTGRES_HOST
+POSTGRES_PORT=$POSTGRES_PORT
 POSTGRES_DB=$POSTGRES_DB
 POSTGRES_USER=$POSTGRES_USER
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 DATABASE_URL=$DATABASE_URL
-
-# pgAdmin
-PGADMIN_PORT=$PGADMIN_PORT
-PGADMIN_DEFAULT_EMAIL=$PGADMIN_DEFAULT_EMAIL
-PGADMIN_DEFAULT_PASSWORD=$PGADMIN_DEFAULT_PASSWORD
 
 # Ambiente
 FLASK_ENV=production
@@ -152,9 +149,10 @@ echo ""
 echo "Configurações:"
 echo "  - Porta: $PORT"
 echo "  - Caminho dos cursos: $COURSES_PATH"
+echo "  - Imagem Docker: $APP_IMAGE"
+echo "  - Host PostgreSQL: $POSTGRES_HOST:$POSTGRES_PORT"
 echo "  - Banco PostgreSQL: $POSTGRES_DB"
 echo "  - Usuário PostgreSQL: $POSTGRES_USER"
-echo "  - pgAdmin: http://localhost:$PGADMIN_PORT"
 echo ""
 echo -e "${YELLOW}IMPORTANTE:${NC}"
 echo "  Ao cadastrar cursos na plataforma, use o caminho:"

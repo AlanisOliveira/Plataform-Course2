@@ -22,7 +22,7 @@ chmod +x setup.sh
 ./setup.sh
 ```
 
-O script detecta o sistema operacional, solicita o caminho dos cursos e gera o arquivo `.env` com as configurações adequadas.
+O script detecta o sistema operacional, solicita o caminho dos cursos, a imagem Docker e os dados do PostgreSQL externo, e gera o arquivo `.env`.
 
 ### 3. Inicialização via Docker
 ```bash
@@ -74,14 +74,15 @@ cp .env.example .env
 Variáveis principais:
 ```
 PORT=9823
+APP_IMAGE=ghcr.io/alanisoliveira/plataform-course2:latest
 COURSES_PATH=/DATA/Cursos
 COURSES_INTERNAL_PATH=/cursos
-DATABASE_URL=postgresql+psycopg://platform_course:SENHA@postgres:5432/platform_course
-POSTGRES_DB=platform_course
-POSTGRES_USER=platform_course
+POSTGRES_HOST=SEU_HOST_POSTGRES
+POSTGRES_PORT=5432
+POSTGRES_DB=Plataform-Course
+POSTGRES_USER=casaos
 POSTGRES_PASSWORD=SENHA_FORTE
-PGADMIN_DEFAULT_EMAIL=admin@plataforma.local
-PGADMIN_DEFAULT_PASSWORD=SENHA_FORTE
+DATABASE_URL=postgresql+psycopg://casaos:SENHA_FORTE@SEU_HOST_POSTGRES:5432/Plataform-Course
 SECRET_KEY=UMA_CHAVE_FORTE
 FLASK_ENV=production
 ```
@@ -89,7 +90,7 @@ FLASK_ENV=production
 ## Banco de dados e administração
 - O backend continua obrigatório para autenticação, sessão, leitura de arquivos e regras de negócio.
 - O banco recomendado para CasaOS é PostgreSQL.
-- O `pgAdmin` é incluído no `docker-compose` apenas para administrar o PostgreSQL.
+- O `docker-compose` deste projeto assume que o PostgreSQL já existe fora da stack da aplicação.
 - O frontend não deve acessar o banco diretamente.
 
 ## Formatos suportados
@@ -134,10 +135,10 @@ Docker Desktop / Portainer
 
 ## CasaOS
 - Rode `./setup.sh` para gerar o `.env`.
-- Suba os serviços com `docker-compose up -d`.
+- Ajuste `DATABASE_URL` para o PostgreSQL já existente no seu CasaOS.
+- Suba os serviços com `docker compose up -d`.
 - A aplicação ficará em `http://IP-DO-SERVIDOR:9823`.
-- O `pgAdmin` ficará em `http://IP-DO-SERVIDOR:8080` por padrão.
-- No `pgAdmin`, o host do banco dentro da stack é `postgres`.
+- O campo `image` da aplicação deve apontar para `ghcr.io/alanisoliveira/plataform-course2:latest`, salvo se você publicar outra tag.
 
 ## Requisitos
 - Docker  
@@ -146,7 +147,7 @@ Docker Desktop / Portainer
 - 500 MB de espaço em disco (mínimo)
 
 ## Segurança
-- Banco SQLite local  
+- Banco PostgreSQL externo  
 - Volumes Docker com acesso somente leitura  
 - API interna, sem exposição externa  
 - CORS restrito
