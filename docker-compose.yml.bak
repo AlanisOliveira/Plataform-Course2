@@ -46,9 +46,6 @@ services:
             - type: bind
               source: /DATA
               target: /DATA
-            - type: bind
-              source: /media/devmon/Novo volume-2
-              target: /volume-2
 networks:
     default:
         name: plataform-course2_default

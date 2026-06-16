@@ -1,7 +1,27 @@
 import os
+from pathlib import Path
 from app import db, Lesson
 from video_utils import get_video_duration_v1
 from app import db, Course
+
+
+def find_subtitle_for_media(media_path):
+    base_path = Path(media_path).with_suffix("")
+    candidates = [
+        f"{base_path}-pt-br.vtt",
+        f"{base_path}.pt-BR.vtt",
+        f"{base_path}.vtt",
+        f"{base_path}-pt-br.srt",
+        f"{base_path}.pt-BR.srt",
+        f"{base_path}.srt",
+    ]
+
+    for candidate in candidates:
+        if os.path.exists(candidate):
+            print(f"Legenda detectada: {candidate}")
+            return candidate
+
+    return ""
 
 def list_and_register_lessons(course_path, course_id):
     if not os.path.exists(course_path):
@@ -58,11 +78,7 @@ def list_and_register_lessons_in_directory(directory, course_id, hierarchy_prefi
 
             subtitle_url = ""
             if not is_pdf:
-                base_path = os.path.splitext(entry.path)[0]
-                vtt_path = f"{base_path}.vtt"
-                if os.path.exists(vtt_path):
-                    subtitle_url = vtt_path
-                    print(f"Legenda detectada: {vtt_path}")
+                subtitle_url = find_subtitle_for_media(entry.path)
 
             media_path = pdf_url or video_url
             seen_paths.add(media_path)
